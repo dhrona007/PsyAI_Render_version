@@ -20,6 +20,62 @@ const API_BASE_URL =
     ? window.BACKEND_URL
     : "";
 
+const SUPPORTED_VIEWS = new Set([
+  "home",
+  "why-us",
+  "assessment",
+  "chat",
+  "voice-chat",
+  "mood",
+]);
+
+function isSupportedView(value) {
+  return SUPPORTED_VIEWS.has(value);
+}
+
+function normalizeView(rawView, fallback = "home") {
+  const value = String(rawView || "")
+    .trim()
+    .toLowerCase();
+  return isSupportedView(value) ? value : fallback;
+}
+
+function getViewFromHref(href) {
+  if (!href) {
+    return "home";
+  }
+
+  const trimmedHref = String(href).trim();
+  if (trimmedHref.startsWith("#")) {
+    return normalizeView(trimmedHref.slice(1));
+  }
+
+  try {
+    const parsedUrl = new URL(trimmedHref, window.location.origin);
+    const pathView = parsedUrl.pathname.replace(/^\/+|\/+$/g, "");
+    return normalizeView(pathView);
+  } catch {
+    const pathView = trimmedHref.replace(/^\/+|\/+$/g, "");
+    return normalizeView(pathView);
+  }
+}
+
+function resolveInitialViewFromLocation() {
+  const hashView = String(window.location.hash || "")
+    .replace(/^#/, "")
+    .trim()
+    .toLowerCase();
+  if (isSupportedView(hashView)) {
+    return hashView;
+  }
+
+  const pathView = String(window.location.pathname || "")
+    .replace(/^\/+|\/+$/g, "")
+    .trim()
+    .toLowerCase();
+  return normalizeView(pathView);
+}
+
 function setupNavbarAutoCollapse() {
   const navbarCollapse =
     document.getElementById("navbarNav") ||
@@ -59,14 +115,19 @@ class VoiceController {
   constructor() {
     this.speechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
-    this.speechSynthesis = window.speechSynthesis;
+    this.speechSynthesis = window.speechSynthesis || null;
     this.recognition = null;
     this.isListening = false;
     this.voice = null;
-    this.loadVoices();
+    if (this.speechSynthesis) {
+      this.loadVoices();
+    }
   }
 
   loadVoices() {
+    if (!this.speechSynthesis) {
+      return;
+    }
     const voices = this.speechSynthesis.getVoices();
     if (voices.length > 0) {
       // Select a preferred voice, e.g., a female English voice with natural accent
@@ -150,20 +211,21 @@ function setupNavigation() {
   document.querySelectorAll(".nav-link").forEach((link) => {
     link.addEventListener("click", (e) => {
       e.preventDefault();
-      const view = e.target.getAttribute("href").substring(1);
-      showView(view);
-      // Update active class
-      document
-        .querySelectorAll(".nav-link")
-        .forEach((nav) => nav.classList.remove("active"));
-      e.target.classList.add("active");
+      const view = getViewFromHref(link.getAttribute("href"));
+      showView(view, { userInitiated: true, updateHistory: true });
     });
   });
 }
 // Show view - comprehensive version with navbar updating and smooth scroll
 let appScriptInitialLoad = true;
-function showView(view) {
-  appState.currentView = view;
+function showView(view, options = {}) {
+  const {
+    userInitiated = true,
+    updateHistory = true,
+    replaceHistory = false,
+  } = options;
+  const normalizedView = normalizeView(view);
+  appState.currentView = normalizedView;
 
   // Hide all sections
   document.querySelectorAll(".section").forEach((section) => {
@@ -171,7 +233,7 @@ function showView(view) {
   });
 
   // Show the selected section
-  const viewElement = document.getElementById(view);
+  const viewElement = document.getElementById(normalizedView);
   if (viewElement) {
     viewElement.style.display = "block";
   }
@@ -179,14 +241,25 @@ function showView(view) {
   // Update navbar active state
   document.querySelectorAll(".nav-link").forEach((link) => {
     link.classList.remove("active");
-    const href = link.getAttribute("href");
-    if (href === `#${view}`) {
+    const hrefView = getViewFromHref(link.getAttribute("href"));
+    if (hrefView === normalizedView) {
       link.classList.add("active");
     }
   });
 
-  // Only scroll to top on user-initiated view changes, not on initial load
-  if (!appScriptInitialLoad) {
+  if (updateHistory && typeof window.history !== "undefined") {
+    const targetPath = normalizedView === "home" ? "/" : `/${normalizedView}`;
+    if (window.location.pathname !== targetPath || window.location.hash) {
+      if (replaceHistory) {
+        window.history.replaceState({ view: normalizedView }, "", targetPath);
+      } else {
+        window.history.pushState({ view: normalizedView }, "", targetPath);
+      }
+    }
+  }
+
+  // Only scroll to top on user-initiated view changes, not initial route restore.
+  if (userInitiated && !appScriptInitialLoad) {
     window.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -194,13 +267,14 @@ function showView(view) {
   }
 
   // If showing chat, focus on input
-  if (view === "chat") {
+  if (normalizedView === "chat") {
     setTimeout(() => {
       const chatInput = document.getElementById("chat-input");
       if (chatInput) chatInput.focus();
     }, 300);
   }
 }
+window.showView = showView;
 
 // Load initial data
 function loadInitialData() {
@@ -222,6 +296,9 @@ function initChat() {
   const chatInput = document.getElementById("chat-input");
   const sendBtn = document.getElementById("send-btn");
   const chatMessages = document.getElementById("chat-messages");
+  if (!chatInput || !sendBtn || !chatMessages) {
+    return;
+  }
 
   let isSending = false;
 
@@ -235,7 +312,7 @@ function initChat() {
 
   function addChatMessage(sender, text) {
     const messageDiv = document.createElement("div");
-    messageDiv.className = `message ${sender}`;
+    messageDiv.className = `message ${sender}-message`;
     if (sender === "ai") {
       // Parse markdown and set as HTML
       messageDiv.innerHTML = marked.parse(text || "");
@@ -706,6 +783,15 @@ function initMood() {
   // The main index page already ships an advanced mood tracker implementation
   // in its inline script. Keep this legacy module as a fallback for older pages.
   if (document.getElementById("mood-save-btn")) {
+    if (
+      typeof window.initializeMoodChart === "function" &&
+      !window.__psyAIMoodInitialized
+    ) {
+      window.__psyAIMoodInitialized = true;
+      Promise.resolve(window.initializeMoodChart()).catch((error) => {
+        console.error("Mood tracker initialization failed:", error);
+      });
+    }
     return;
   }
 
@@ -872,6 +958,12 @@ function initApp() {
   initMood();
 
   setupNavigation();
+  window.addEventListener("popstate", () => {
+    showView(resolveInitialViewFromLocation(), {
+      userInitiated: false,
+      updateHistory: false,
+    });
+  });
 
   if (!inlineControllerPresent) {
     // Emergency button event listener
@@ -910,7 +1002,7 @@ function initApp() {
     } else {
       function appendVoiceChatMessage(sender, text) {
         const messageDiv = document.createElement("div");
-        messageDiv.className = `message ${sender}`;
+        messageDiv.className = `message ${sender}-message`;
 
         if (sender === "ai") {
           messageDiv.innerHTML = marked.parse(text || "");
@@ -955,7 +1047,12 @@ function initApp() {
   }
 
   loadInitialData();
-  showView("home");
+  showView(resolveInitialViewFromLocation(), {
+    userInitiated: false,
+    updateHistory: true,
+    replaceHistory: true,
+  });
+  window.scrollTo({ top: 0, behavior: "auto" });
   appScriptInitialLoad = false; // Mark initial load as complete, now scroll on view changes
 }
 

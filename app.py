@@ -661,7 +661,36 @@ def make_session_permanent():
 
 @app.route("/", methods=["GET"])
 def serve_index():
-    return send_from_directory(os.getcwd(), "index.html")
+    return send_from_directory(app.root_path, "index.html")
+
+
+SPA_VIEWS = {"home", "why-us", "assessment", "chat", "voice-chat", "mood"}
+
+
+@app.route("/<path:path>", methods=["GET"])
+def serve_spa_path(path):
+    """
+    Serve SPA routes so deep links (e.g. /chat) work on refresh in Render.
+    """
+    normalized_path = (path or "").strip("/")
+
+    # Keep API/static/socket paths out of SPA fallback handling.
+    if (
+        normalized_path.startswith("api/")
+        or normalized_path.startswith("static/")
+        or normalized_path.startswith("socket.io")
+    ):
+        return jsonify({"error": "Not found"}), 404
+
+    # Unknown direct asset-like paths should still return 404.
+    if "." in normalized_path and normalized_path not in SPA_VIEWS:
+        return jsonify({"error": "Not found"}), 404
+
+    if not normalized_path or normalized_path in SPA_VIEWS:
+        return send_from_directory(app.root_path, "index.html")
+
+    # Default to SPA shell for future client-side routes.
+    return send_from_directory(app.root_path, "index.html")
 
 
 @app.route("/api/start_detailed_assessment", methods=["POST"])
