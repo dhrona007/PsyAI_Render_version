@@ -1,0 +1,2096 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PsyAI - AI Mental Health Companion</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-SgOJa3DmI69IUzQ2PVdRZhwQ+dy64/BUtbMJw1MZ8t5HZApcHrRKUc4W0kG879m7" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+        rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&family=Rouge+Script&display=swap"
+        rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+    <style>
+        :root {
+            --primary: #5D5FEF;
+            --primary-light: #7B7DFF;
+            --primary-dark: #4A4BCF;
+            --secondary: #FF6B8B;
+            --accent: #36D1DC;
+            --light: #F8F9FA;
+            --dark: #212529;
+            --success: #4CAF50;
+            --warning: #FFC107;
+            --danger: #F44336;
+            --gray: #6C757D;
+            --gray-light: #E9ECEF;
+            --border-radius: 16px;
+            --box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            --gradient-secondary: linear-gradient(135deg, var(--secondary) 0%, #FFA07A 100%);
+        }
+
+        html {
+            scroll-behavior: auto;
+        }
+
+        [data-theme="dark"] {
+            --light: #0f172a;
+            --dark: #e5e7eb;
+            --gray-light: #1f2937;
+            --box-shadow: 0 8px 30px rgba(15, 23, 42, 0.8);
+        }
+
+        [data-theme="dark"] body {
+            background-color: var(--light);
+            color: var(--dark);
+        }
+
+        [data-theme="dark"] .text-muted {
+            color: #94a3b8 !important;
+        }
+
+        [data-theme="dark"] .bg-light,
+        [data-theme="dark"] .chat-preview,
+        [data-theme="dark"] .form-control,
+        [data-theme="dark"] #mood-feedback,
+        [data-theme="dark"] #mood-coping,
+        [data-theme="dark"] #mood-insights,
+        [data-theme="dark"] .model-card {
+            background-color: #1e293b !important;
+            color: #e5e7eb !important;
+        }
+
+        [data-theme="dark"] .form-control {
+            border-color: #334155;
+        }
+
+        [data-theme="dark"] .form-control::placeholder {
+            color: #94a3b8;
+        }
+
+        [data-theme="dark"] .assessment-container,
+        [data-theme="dark"] .question-card,
+        [data-theme="dark"] .model-comparison,
+        [data-theme="dark"] .chat-container,
+        [data-theme="dark"] .voice-chat-container {
+            color: var(--dark);
+        }
+
+        [data-theme="dark"] .table {
+            color: #e5e7eb;
+            --bs-table-color: #e5e7eb;
+            --bs-table-bg: transparent;
+            --bs-table-striped-bg: rgba(148, 163, 184, 0.08);
+            --bs-table-striped-color: #e5e7eb;
+            --bs-table-border-color: #334155;
+            --bs-table-hover-color: #f8fafc;
+            --bs-table-hover-bg: rgba(148, 163, 184, 0.14);
+        }
+
+        [data-theme="dark"] .table th,
+        [data-theme="dark"] .table td {
+            color: #e5e7eb !important;
+        }
+
+        [data-theme="dark"] footer {
+            background: #111827;
+            color: var(--dark);
+        }
+
+        body {
+            font-family: 'PT Sans', sans-serif;
+            background-color: var(--light);
+            color: var(--dark);
+            transition: var(--transition);
+            line-height: 1.6;
+            overflow-x: hidden;
+            padding-top: 80px;
+        }
+
+        .logo-text {
+            font-family: "Montserrat", sans-serif;
+            font-weight: 700;
+            font-size: 1.8rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .montserrat-uniquifier {
+            font-family: "Montserrat", sans-serif;
+            font-optical-sizing: auto;
+            font-weight: 500;
+            font-style: normal;
+        }
+
+        .pt-sans-regular {
+            font-family: "PT Sans", sans-serif;
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        .navbar {
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            transition: var(--transition);
+            padding: 1rem 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            width: 100%;
+        }
+
+        [data-theme="dark"] .navbar {
+            background-color: rgba(15, 23, 42, 0.98);
+        }
+
+        .nav-link {
+            color: var(--dark) !important;
+            font-weight: 500;
+            margin: 0 5px;
+            border-radius: 10px;
+            transition: var(--transition);
+            padding: 0.5rem 1rem !important;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            background: var(--gradient-primary);
+            color: white !important;
+            transform: translateY(-2px);
+        }
+
+        .section {
+            display: none;
+            padding: 2rem 0;
+            min-height: 80vh;
+        }
+
+        #home {
+            display: block;
+        }
+
+        .hero-section {
+            background: var(--gradient-primary);
+            color: white;
+            border-radius: var(--border-radius);
+            padding: 4rem 2rem;
+            margin-bottom: 3rem;
+            text-align: center;
+            box-shadow: var(--box-shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-section::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffffff' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+
+        .feature-card {
+            background: var(--light);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--box-shadow);
+            transition: var(--transition);
+            border: 1px solid var(--gray-light);
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5px;
+            height: 100%;
+            background: var(--gradient-primary);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1.5rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            border: none;
+            border-radius: 12px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            transition: var(--transition);
+            box-shadow: 0 4px 15px rgba(93, 95, 239, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(93, 95, 239, 0.4);
+        }
+
+        .btn-outline-primary {
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            transition: var(--transition);
+            background: transparent;
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(93, 95, 239, 0.3);
+        }
+
+        .chat-container {
+            background: var(--light);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            height: 70vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--gray-light);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 1rem 1.5rem;
+            border-radius: 20px;
+            position: relative;
+            animation: fadeIn 0.4s ease;
+            line-height: 1.5;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(15px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background: var(--gradient-primary);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .ai-message {
+            align-self: flex-start;
+            background: var(--gray-light);
+            color: var(--dark);
+            border-bottom-left-radius: 5px;
+        }
+
+        .chat-input-container {
+            padding: 1.5rem;
+            border-top: 1px solid var(--gray-light);
+            display: flex;
+            gap: 0.75rem;
+            background: var(--light);
+        }
+
+        .chat-input {
+            flex: 1;
+            border: 2px solid var(--gray-light);
+            border-radius: 20px;
+            padding: 0.75rem 1.5rem;
+            background: var(--light);
+            color: var(--dark);
+            transition: var(--transition);
+            font-size: 1rem;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(93, 95, 239, 0.2);
+        }
+
+        .send-btn {
+            background: var(--gradient-primary);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 55px;
+            height: 55px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            box-shadow: 0 4px 15px rgba(93, 95, 239, 0.3);
+        }
+
+        .send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(93, 95, 239, 0.4);
+        }
+
+        .assessment-container {
+            background: var(--light);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--gray-light);
+        }
+
+        .progress-container {
+            margin-bottom: 2rem;
+        }
+
+        .progress {
+            height: 10px;
+            border-radius: 10px;
+            background-color: var(--gray-light);
+        }
+
+        .progress-bar {
+            background: var(--gradient-primary);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+
+        .question-card {
+            background: var(--light);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--gray-light);
+            transition: var(--transition);
+        }
+
+        .question-card:hover {
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .option-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 1rem 1.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--gray-light);
+            border: none;
+            border-radius: 12px;
+            transition: var(--transition);
+            color: var(--dark);
+            font-weight: 500;
+        }
+
+        .option-btn:hover,
+        .option-btn.active {
+            background: var(--gradient-primary);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(93, 95, 239, 0.3);
+        }
+
+        .mood-btn {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: none;
+            margin: 0 20px;
+            font-size: 2.5rem;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .mood-buttons-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-bottom: 3rem;
+            padding: 2rem 0;
+        }
+
+        .mood-btn:hover {
+            transform: scale(1.1) translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .mood-happy {
+            background: var(--gradient-primary);
+            color: white;
+        }
+
+        .mood-sad {
+            background: var(--gradient-secondary);
+            color: white;
+        }
+
+        .mood-anxious {
+            background: linear-gradient(135deg, var(--warning) 0%, #FFA726 100%);
+            color: white;
+        }
+
+        #mood .assessment-container {
+            padding: 3rem;
+        }
+
+        .mood-form-section {
+            margin-bottom: 1.5rem;
+            padding: 1.25rem;
+            border: 1px solid var(--gray-light);
+            border-radius: 14px;
+            background: rgba(108, 117, 125, 0.04);
+        }
+
+        .mood-form-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .form-label {
+            margin-bottom: 1rem;
+        }
+
+        .mood-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem 1.5rem;
+        }
+
+        .mood-tags .form-check {
+            margin-bottom: 0.75rem;
+        }
+
+        #mood-insights,
+        #mood-feedback,
+        #mood-coping {
+            border: 1px solid var(--gray-light);
+        }
+
+        .voice-chat-container {
+            background: var(--light);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            height: 70vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--gray-light);
+        }
+
+        .voice-btn {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: none;
+            background: var(--gradient-primary);
+            color: white;
+            font-size: 2rem;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            box-shadow: 0 6px 20px rgba(93, 95, 239, 0.3);
+        }
+
+        .voice-btn:hover,
+        .voice-btn.listening {
+            background: var(--gradient-secondary);
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(255, 107, 139, 0.4);
+        }
+
+        .model-comparison {
+            background: var(--light);
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 2.5rem;
+            margin-top: 2rem;
+            border: 1px solid var(--gray-light);
+        }
+
+        .model-card {
+            background: var(--gray-light);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: var(--transition);
+            border-left: 5px solid var(--primary);
+        }
+
+        .model-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .best-model {
+            border-left: 5px solid var(--success);
+            background: var(--gray-light);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .best-model::after {
+            content: "BEST PERFORMANCE";
+            position: absolute;
+            top: 10px;
+            right: -30px;
+            background: var(--success);
+            color: white;
+            padding: 3px 30px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            transform: rotate(45deg);
+        }
+
+        .emergency-alert {
+            background: linear-gradient(135deg, var(--danger) 0%, #ff8a8a 100%);
+            color: white;
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            text-align: center;
+            margin-top: 2rem;
+            box-shadow: 0 8px 25px rgba(244, 67, 54, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .emergency-alert::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .dark-mode-toggle {
+            background: var(--gray-light);
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            color: var(--dark);
+        }
+
+        .dark-mode-toggle:hover {
+            background: var(--primary);
+            color: white;
+            transform: rotate(15deg);
+        }
+
+        footer {
+            background: var(--gray-light);
+            padding: 3rem 0;
+            margin-top: 4rem;
+            text-align: center;
+        }
+
+        .floating-shape {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.1;
+            z-index: 0;
+        }
+
+        .shape-1 {
+            width: 150px;
+            height: 150px;
+            background: var(--primary);
+            top: 10%;
+            left: 5%;
+        }
+
+        .shape-2 {
+            width: 100px;
+            height: 100px;
+            background: var(--secondary);
+            bottom: 20%;
+            right: 10%;
+        }
+
+        @media (max-width: 768px) {
+            .hero-section {
+                padding: 2.5rem 1rem;
+            }
+
+            .message {
+                max-width: 90%;
+            }
+
+            .mood-btn {
+                width: 70px;
+                height: 70px;
+                margin: 0 10px;
+                font-size: 1.5rem;
+            }
+
+            #mood .assessment-container {
+                padding: 1.5rem;
+            }
+
+            .voice-btn {
+                width: 80px;
+                height: 80px;
+                font-size: 1.5rem;
+            }
+        }
+
+        /* ---------- 2026 Visual Refresh Overrides ---------- */
+        :root {
+            --primary: #0f766e;
+            --primary-light: #14b8a6;
+            --primary-dark: #115e59;
+            --secondary: #ea580c;
+            --accent: #22d3ee;
+            --light: #f5f7fb;
+            --dark: #0f172a;
+            --gray: #475569;
+            --gray-light: #dbe4ee;
+            --gradient-primary: linear-gradient(135deg, #0f766e 0%, #22d3ee 100%);
+            --gradient-secondary: linear-gradient(135deg, #ea580c 0%, #f59e0b 100%);
+            --box-shadow: 0 14px 32px rgba(15, 23, 42, 0.08);
+            --border-radius: 18px;
+        }
+
+        [data-theme="dark"] {
+            --light: #0b1220;
+            --dark: #e2e8f0;
+            --gray-light: #1e293b;
+            --gray: #94a3b8;
+            --box-shadow: 0 16px 36px rgba(2, 6, 23, 0.7);
+        }
+
+        body {
+            font-family: "Space Grotesk", "PT Sans", sans-serif;
+            background:
+                radial-gradient(circle at 8% 0%, rgba(34, 211, 238, 0.15) 0%, transparent 35%),
+                radial-gradient(circle at 92% 10%, rgba(234, 88, 12, 0.12) 0%, transparent 30%),
+                var(--light);
+            color: var(--dark);
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        .logo-text {
+            font-family: "Sora", "Montserrat", sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        .section {
+            padding: 2.75rem 0;
+            animation: sectionReveal 0.45s ease;
+        }
+
+        @keyframes sectionReveal {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .navbar {
+            border-bottom: 1px solid rgba(15, 118, 110, 0.18);
+            background: rgba(255, 255, 255, 0.86);
+        }
+
+        [data-theme="dark"] .navbar {
+            background: rgba(11, 18, 32, 0.9);
+            border-bottom-color: rgba(34, 211, 238, 0.22);
+        }
+
+        .nav-link {
+            border-radius: 999px;
+        }
+
+        .hero-section {
+            padding: 4.5rem 2.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            background:
+                radial-gradient(circle at 15% 15%, rgba(255, 255, 255, 0.2) 0%, transparent 34%),
+                linear-gradient(140deg, #0f766e 0%, #0ea5e9 55%, #ea580c 115%);
+        }
+
+        .hero-section .lead {
+            font-size: 1.2rem;
+            max-width: 780px;
+            margin-inline: auto;
+        }
+
+        .hero-actions .btn {
+            min-width: 190px;
+        }
+
+        .hero-kpis {
+            margin-top: 2rem;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.9rem;
+        }
+
+        .hero-kpi {
+            padding: 0.9rem 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.12);
+            text-align: left;
+        }
+
+        .hero-kpi strong {
+            font-size: 1.3rem;
+            display: block;
+            line-height: 1.15;
+        }
+
+        .feature-card {
+            border-width: 1px;
+            border-color: rgba(15, 118, 110, 0.14);
+        }
+
+        .feature-card::before {
+            width: 4px;
+            background: linear-gradient(180deg, #0f766e 0%, #ea580c 100%);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-7px);
+        }
+
+        .assessment-container,
+        .model-comparison,
+        .chat-container,
+        .voice-chat-container,
+        .question-card {
+            border-color: rgba(15, 118, 110, 0.16);
+            box-shadow: var(--box-shadow);
+        }
+
+        .chat-messages,
+        #voice-chat-messages {
+            background-image:
+                radial-gradient(circle at 20% 10%, rgba(34, 211, 238, 0.07) 0%, transparent 30%);
+        }
+
+        .option-btn:hover,
+        .option-btn.active {
+            transform: translateX(3px);
+        }
+
+        .mood-form-section {
+            background: linear-gradient(180deg, rgba(15, 118, 110, 0.05) 0%, rgba(34, 211, 238, 0.03) 100%);
+        }
+
+        [data-theme="dark"] .mood-form-section {
+            background: linear-gradient(180deg, rgba(15, 118, 110, 0.2) 0%, rgba(30, 41, 59, 0.4) 100%);
+        }
+
+        .quick-action-board {
+            margin-top: 1.5rem;
+        }
+
+        .quick-action-board .quick-action {
+            width: 100%;
+            padding: 1rem 1.2rem;
+            border: 1px solid rgba(15, 118, 110, 0.2);
+            border-radius: 14px;
+            background: var(--light);
+            color: var(--dark);
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            font-weight: 600;
+            transition: all 0.25s ease;
+        }
+
+        .quick-action-board .quick-action:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary-light);
+            box-shadow: 0 10px 24px rgba(15, 118, 110, 0.14);
+        }
+
+        [data-theme="dark"] .quick-action-board .quick-action {
+            background: #0f172a;
+            border-color: #334155;
+            color: #e2e8f0;
+        }
+
+        #back-to-top-btn {
+            position: fixed;
+            right: 1.2rem;
+            bottom: 1.2rem;
+            width: 48px;
+            height: 48px;
+            border-radius: 999px;
+            border: none;
+            background: var(--gradient-primary);
+            color: #fff;
+            box-shadow: 0 10px 24px rgba(15, 118, 110, 0.34);
+            display: none;
+            z-index: 1100;
+        }
+
+        #back-to-top-btn.show {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @media (max-width: 992px) {
+            .hero-kpis {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body class="pt-sans-regular">
+    <!-- Floating Background Shapes -->
+    <div class="floating-shape shape-1"></div>
+    <div class="floating-shape shape-2"></div>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="#home">
+                <div class="d-flex align-items-center" onclick="showView('home')">
+                    <i class="fas fa-brain me-2" style="font-size: 1.8rem; color: var(--primary);"></i>
+                    <h1 class="logo-text mb-0">PsyAI</h1>
+                </div>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#home" onclick="showView('home')">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#why-us" onclick="showView('why-us')">Why Us</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#assessment" onclick="showView('assessment')">Assessment</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#chat" onclick="showView('chat')">Chat</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#voice-chat" onclick="showView('voice-chat')">Voice Chat</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#mood" onclick="showView('mood')">Mood Tracker</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <button id="dark-mode-toggle" class="btn dark-mode-toggle me-3" type="button">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <button id="emergency-btn" class="btn btn-danger" type="button">
+                        <i class="fas fa-bell me-2"></i> Emergency
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-4">
+        <!-- Home Section -->
+        <section id="home" class="section">
+            <div class="hero-section">
+                <h1 class="display-4 mb-3">Mental Wellness That Feels Human</h1>
+                <p class="lead mb-4">PsyAI combines assessment, conversation, and mood intelligence in one smooth
+                    experience so users can move from check-in to action quickly.</p>
+                <div class="hero-actions d-flex flex-wrap justify-content-center gap-3">
+                    <button id="hero-start-chat-btn" class="btn btn-light btn-lg" onclick="showView('chat')">
+                        <i class="fas fa-comments me-2"></i>Start Support Chat
+                    </button>
+                    <button id="hero-quick-assessment-btn" class="btn btn-outline-light btn-lg"
+                        onclick="showView('assessment')">
+                        <i class="fas fa-clipboard-list me-2"></i>Take Quick Assessment
+                    </button>
+                    <button class="btn btn-outline-light btn-lg" onclick="showView('mood')">
+                        <i class="fas fa-heartbeat me-2"></i>Open Mood Tracker
+                    </button>
+                </div>
+                <div class="hero-kpis">
+                    <div class="hero-kpi">
+                        <strong>8 / 14</strong>
+                        <span>Question modes for faster completion</span>
+                    </div>
+                    <div class="hero-kpi">
+                        <strong>4 Sources</strong>
+                        <span>Mood timeline from chat, voice, assessment, and manual logs</span>
+                    </div>
+                    <div class="hero-kpi">
+                        <strong>24/7</strong>
+                        <span>Always-available AI check-in and support</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Features Grid -->
+            <div class="row g-4 mb-5">
+                <div class="col-md-6 col-lg-3">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <h5>AI-Powered Insights</h5>
+                        <p>24/7 access to intelligent mental health support with natural conversation flow</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <h5>Adaptive Assessments</h5>
+                        <p>Personalized mental health evaluation with detailed PDF report generation</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-heart"></i>
+                        </div>
+                        <h5>Mood Tracking</h5>
+                        <p>Visualize emotional patterns with interactive charts & personalized insights</p>
+                        <button class="btn btn-outline-primary btn-sm mt-2" onclick="showView('mood')">
+                            Track My Mood
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-microphone"></i>
+                        </div>
+                        <h5>Voice Chat</h5>
+                        <p>Hands-free conversations with advanced voice recognition technology</p>
+                        <button class="btn btn-outline-primary btn-sm mt-2" onclick="showView('voice-chat')">
+                            Try Voice Mode
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="assessment-container quick-action-board">
+                <h4 class="mb-3">Start In 30 Seconds</h4>
+                <p class="text-muted mb-4">Jump directly to what you need right now.</p>
+                <div class="row g-3">
+                    <div class="col-md-6 col-lg-3">
+                        <button class="quick-action" onclick="showView('assessment')">
+                            <i class="fas fa-stopwatch"></i>
+                            Quick Assessment
+                        </button>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <button class="quick-action" onclick="showView('chat')">
+                            <i class="fas fa-message"></i>
+                            Text Chat Support
+                        </button>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <button class="quick-action" onclick="showView('voice-chat')">
+                            <i class="fas fa-microphone-lines"></i>
+                            Voice Conversation
+                        </button>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <button class="quick-action" onclick="showView('mood')">
+                            <i class="fas fa-chart-simple"></i>
+                            Mood Dashboard
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Demo & Safety -->
+            <div class="row g-4 mb-5">
+                <div class="col-md-6">
+                    <div class="feature-card h-100">
+                        <h4 class="mb-3">Experience PsyAI</h4>
+                        <div class="chat-preview p-3 rounded bg-light">
+                            <p class="user-message mb-2 p-2 rounded">"I've been feeling overwhelmed at work..."</p>
+                            <p class="ai-message mb-0 p-2 rounded">"I understand how stress can impact your daily life.
+                                Let's explore some coping strategies together. 🌸"</p>
+                        </div>
+                        <button class="btn btn-primary mt-3" onclick="showView('chat')">
+                            Try Live Chat
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="feature-card h-100">
+                        <h4 class="mb-3">Your Safety First 🛡️</h4>
+                        <p>Immediate access to crisis resources and emergency contacts when you need them most</p>
+                        <div class="emergency-alert">
+                            <strong>Need urgent help?</strong> Our emergency alert system connects you with
+                            professionals
+                            <button id="home-emergency-trigger-btn" class="btn btn-light mt-2"
+                                onclick="triggerEmergencyProtocol()">
+                                🚨 Trigger Emergency Protocol
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Comparison -->
+            <div class="model-comparison">
+                <h3 class="mb-4">AI Model Performance Comparison</h3>
+                <div id="model-comparison-content">
+                    <p>Loading model benchmark data...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Why Us Section -->
+        <section id="why-us" class="section">
+            <h2 class="mb-4">Why PsyAI Is Different</h2>
+            <div class="assessment-container">
+                <p class="lead mb-4">PsyAI is built as a complete mental wellness workflow, not just a chatbot.</p>
+
+                <div class="row g-4 mb-4">
+                    <div class="col-md-6 col-lg-3">
+                        <div class="feature-card h-100">
+                            <div class="feature-icon">
+                                <i class="fas fa-layer-group"></i>
+                            </div>
+                            <h5>Multi-Channel Tracking</h5>
+                            <p>Mood is tracked from manual check-ins, text chat, voice chat, and assessment patterns in
+                                one timeline.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <div class="feature-card h-100">
+                            <div class="feature-icon">
+                                <i class="fas fa-bolt"></i>
+                            </div>
+                            <h5>Fast User Experience</h5>
+                            <p>Quick assessment mode reduces friction with fewer questions, while detailed mode is
+                                optional when users want depth.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <div class="feature-card h-100">
+                            <div class="feature-icon">
+                                <i class="fas fa-chart-area"></i>
+                            </div>
+                            <h5>Actionable Insights</h5>
+                            <p>Users can see trends, source-wise mood contribution, and practical next steps instead of
+                                generic responses.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <div class="feature-card h-100">
+                            <div class="feature-icon">
+                                <i class="fas fa-shield-heart"></i>
+                            </div>
+                            <h5>Safety-Aware Design</h5>
+                            <p>Crisis-aware flows, emergency triggers, and gentle escalation language are integrated
+                                directly into interaction flows.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <h5 class="mb-3">PsyAI vs Typical Mental Health Chatbot</h5>
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Capability</th>
+                                <th scope="col">PsyAI</th>
+                                <th scope="col">Typical App</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Assessment UX</td>
+                                <td>Quick + Detailed paths based on user effort</td>
+                                <td>One long static questionnaire</td>
+                            </tr>
+                            <tr>
+                                <td>Mood Signals</td>
+                                <td>Manual + Chat + Voice + Assessment</td>
+                                <td>Mostly manual mood input only</td>
+                            </tr>
+                            <tr>
+                                <td>Insights Quality</td>
+                                <td>Context-rich, trend-aware summaries</td>
+                                <td>Generic tips with limited personalization</td>
+                            </tr>
+                            <tr>
+                                <td>Safety Layer</td>
+                                <td>Crisis keyword detection + emergency trigger path</td>
+                                <td>Often basic disclaimer only</td>
+                            </tr>
+                            <tr>
+                                <td>User Journey</td>
+                                <td>Single app flow across assessment, conversation, and tracking</td>
+                                <td>Disconnected features with weak continuity</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Assessment Section -->
+        <section id="assessment" class="section">
+            <h2 class="mb-4">Mental Health Assessment</h2>
+            <div class="assessment-container">
+                <div id="assessment-description">
+                    <p>Start with a quick check-in designed for real users who want insights without fatigue.</p>
+                    <p>Quick assessment asks fewer questions for speed. Detailed check-in adds more depth when you
+                        want deeper analysis.</p>
+                </div>
+
+                <div class="d-flex flex-wrap gap-3 my-4">
+                    <button id="start-general-assessment-btn" class="btn btn-primary">
+                        <i class="fas fa-play me-2"></i>Quick Assessment (8 Questions)
+                    </button>
+                    <button id="start-detailed-assessment-btn" class="btn btn-outline-primary">
+                        <i class="fas fa-list-alt me-2"></i>Detailed Check-In (14 Questions)
+                    </button>
+                </div>
+
+                <div class="progress-container">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Assessment Progress</span>
+                        <span id="progress-text">0%</span>
+                    </div>
+                    <div class="progress">
+                        <div id="assessment-progress-bar" class="progress-bar" role="progressbar" style="width: 0%">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="assessment-questions" class="my-4"></div>
+
+                <div id="assessment-navigation" class="d-flex justify-content-between mt-4">
+                    <button id="prev-question-btn" class="btn btn-outline-secondary" disabled>
+                        <i class="fas fa-arrow-left me-2"></i>Previous
+                    </button>
+                    <button id="next-question-btn" class="btn btn-primary" disabled>
+                        Next <i class="fas fa-arrow-right ms-2"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Chat Section -->
+        <section id="chat" class="section">
+            <h2 class="mb-4">Chat with PsyAI</h2>
+            <div class="chat-container">
+                <div id="chat-messages" class="chat-messages">
+                    <div class="ai-message message">
+                        <p>Hello! I'm PsyAI, your intelligent mental health companion. I'm here to listen and provide
+                            support. How are you feeling today?</p>
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <input type="text" id="chat-input" class="chat-input" placeholder="Type your message..."
+                        autocomplete="off" autofocus />
+                    <button id="send-btn" class="send-btn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Voice Chat Section -->
+        <section id="voice-chat" class="section">
+            <h2 class="mb-4">Voice Chat</h2>
+            <div class="voice-chat-container">
+                <div id="voice-chat-messages" class="chat-messages">
+                    <div class="ai-message message">
+                        <p>Click the microphone button to start a voice conversation. I'm here to listen and support
+                            you.</p>
+                    </div>
+                </div>
+                <div class="p-4 text-center">
+                    <button id="start-voice-chat-btn" class="voice-btn">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <p class="mt-3">Click to start/stop recording</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Mood Tracker Section -->
+        <section id="mood" class="section">
+            <h2 class="mb-4">Mood Tracker</h2>
+            <p class="text-muted mb-4">Your mood timeline now blends manual check-ins with patterns detected from chat,
+                voice chat, and completed assessments.</p>
+            <div class="assessment-container">
+                <div class="row g-4">
+                    <!-- Quick mood buttons + sliders -->
+                    <div class="col-md-6">
+                        <!-- Mood Selection -->
+                        <div class="mood-form-section">
+                            <h5 class="mb-4 text-center">How are you feeling right now?</h5>
+                            <div class="mood-buttons-container">
+                                <button id="happy-btn" class="mood-btn mood-happy" type="button"
+                                    title="Log a happy mood">
+                                    <i class="fas fa-smile"></i>
+                                </button>
+                                <button id="sad-btn" class="mood-btn mood-sad" type="button" title="Log a sad mood">
+                                    <i class="fas fa-frown"></i>
+                                </button>
+                                <button id="anxious-btn" class="mood-btn mood-anxious" type="button"
+                                    title="Log an anxious mood">
+                                    <i class="fas fa-flushed"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Mood Metrics -->
+                        <div class="mood-form-section">
+                            <h6 class="fw-semibold mb-3">How intense is your mood?</h6>
+                            <div class="mb-4">
+                                <label for="mood-score" class="form-label fw-semibold">Mood level (1 = very low, 10 =
+                                    very high)</label>
+                                <input type="range" class="form-range" id="mood-score" min="1" max="10" value="5">
+                                <div class="d-flex justify-content-between small text-muted mt-2">
+                                    <span>Very low</span>
+                                    <span id="mood-score-value">5</span>
+                                    <span>Very high</span>
+                                </div>
+                            </div>
+
+                            <div class="row g-4">
+                                <div class="col-6">
+                                    <label for="mood-energy" class="form-label fw-semibold">Energy</label>
+                                    <input type="range" class="form-range" id="mood-energy" min="1" max="10" value="5">
+                                </div>
+                                <div class="col-6">
+                                    <label for="mood-anxiety" class="form-label fw-semibold">Anxiety</label>
+                                    <input type="range" class="form-range" id="mood-anxiety" min="1" max="10" value="5">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tags Section -->
+                        <div class="mood-form-section">
+                            <label class="form-label fw-semibold d-block mb-3">What is influencing your mood?</label>
+                            <div class="mood-tags">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="tag-work" value="work">
+                                    <label class="form-check-label" for="tag-work">Work / study</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="tag-relationship"
+                                        value="relationship">
+                                    <label class="form-check-label" for="tag-relationship">Relationships</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="tag-health" value="health">
+                                    <label class="form-check-label" for="tag-health">Health</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="tag-sleep" value="sleep">
+                                    <label class="form-check-label" for="tag-sleep">Sleep</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="tag-social" value="social">
+                                    <label class="form-check-label" for="tag-social">Social</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Journal Section -->
+                        <div class="mood-form-section">
+                            <label for="mood-journal" class="form-label fw-semibold d-block mb-3">Reflect on your
+                                thoughts</label>
+                            <textarea id="mood-journal" class="form-control" rows="5"
+                                placeholder="Write a few lines about what is on your mind..."></textarea>
+                            <button id="mood-prompt-btn" class="btn btn-outline-primary btn-sm mt-3" type="button">
+                                <i class="fas fa-lightbulb me-1"></i>Suggest a journaling prompt
+                            </button>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="mood-form-section border-bottom-0">
+                            <h6 class="fw-semibold mb-3">Save & Analyze</h6>
+                            <div class="d-grid gap-2 mb-3">
+                                <button id="mood-save-btn" class="btn btn-primary btn-lg" type="button">
+                                    <i class="fas fa-save me-2"></i>Save mood entry
+                                </button>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button id="mood-ai-insights-btn" class="btn btn-outline-primary flex-grow-1"
+                                    type="button">
+                                    <i class="fas fa-brain me-1"></i>AI insights
+                                </button>
+                                <button id="mood-export-json-btn" class="btn btn-outline-secondary btn-sm" type="button"
+                                    title="Export as JSON">
+                                    <i class="fas fa-file-export"></i>
+                                </button>
+                                <button id="mood-export-csv-btn" class="btn btn-outline-secondary btn-sm" type="button"
+                                    title="Export as CSV">
+                                    <i class="fas fa-file-csv"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="mood-feedback" class="mt-4 p-3 rounded bg-light" style="display: none;"></div>
+                        <div id="mood-coping" class="mt-3 p-3 rounded bg-light small" style="display: none;"></div>
+                    </div>
+
+                    <!-- History, stats and insights -->
+                    <div class="col-md-6">
+                        <h5 class="mb-3">Your mood patterns</h5>
+                        <canvas id="mood-chart" width="400" height="200" aria-label="Mood history chart"></canvas>
+                        <div id="mood-stats" class="mt-3 small text-muted"></div>
+
+                        <div class="mt-4">
+                            <h6 class="fw-semibold mb-2">AI reflection</h6>
+                            <div id="mood-insights" class="p-3 rounded bg-light small"
+                                style="min-height: 80px; max-height: 220px; overflow-y: auto;">
+                                <span class="text-muted">Save a few mood entries, then click “AI insights” to see a
+                                    gentle reflection on your recent patterns.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <button id="back-to-top-btn" type="button" aria-label="Back to top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p class="mb-2">Made with ❤️ for better mental health</p>
+            <p class="text-muted small">© 2023 PsyAI. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+    <script>
+        // SocketIO client initialization
+        const socket = io();
+
+        // Track if this is the initial page load
+        let isInitialLoad = true;
+
+        // Safe localStorage wrapper: falls back to in-memory storage when access is blocked
+        const _memoryStorage = {};
+        const storageAvailable = (function () {
+            try {
+                const testKey = '__storage_test__';
+                localStorage.setItem(testKey, '1');
+                localStorage.removeItem(testKey);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        })();
+
+        function safeLocalSet(key, value) {
+            try {
+                if (storageAvailable) {
+                    localStorage.setItem(key, value);
+                } else {
+                    _memoryStorage[key] = String(value);
+                }
+            } catch (e) {
+                _memoryStorage[key] = String(value);
+            }
+        }
+
+        function safeLocalGet(key) {
+            try {
+                if (storageAvailable) {
+                    return localStorage.getItem(key);
+                } else {
+                    return Object.prototype.hasOwnProperty.call(_memoryStorage, key)
+                        ? _memoryStorage[key]
+                        : null;
+                }
+            } catch (e) {
+                return Object.prototype.hasOwnProperty.call(_memoryStorage, key)
+                    ? _memoryStorage[key]
+                    : null;
+            }
+        }
+
+        function safeLocalRemove(key) {
+            try {
+                if (storageAvailable) {
+                    localStorage.removeItem(key);
+                } else {
+                    delete _memoryStorage[key];
+                }
+            } catch (e) {
+                delete _memoryStorage[key];
+            }
+        }
+        // DOM Elements
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
+        const emergencyBtn = document.getElementById('emergency-btn');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const chatMessages = document.getElementById('chat-messages');
+        const startVoiceChatBtn = document.getElementById('start-voice-chat-btn');
+        const voiceChatMessages = document.getElementById('voice-chat-messages');
+        const moodFeedback = document.getElementById('mood-feedback');
+        const modelComparisonContent = document.getElementById('model-comparison-content');
+        const backToTopBtn = document.getElementById('back-to-top-btn');
+
+        // Dark Mode Toggle
+        darkModeToggle.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            if (currentTheme === 'dark') {
+                document.documentElement.removeAttribute('data-theme');
+                darkModeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+                safeLocalSet('theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                darkModeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+                safeLocalSet('theme', 'dark');
+            }
+        });
+
+        // Check for saved theme preference
+        const savedTheme = safeLocalGet('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            darkModeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+        }
+
+        // Back to top button
+        if (backToTopBtn) {
+            const handleBackToTopVisibility = () => {
+                if (window.scrollY > 280) {
+                    backToTopBtn.classList.add('show');
+                } else {
+                    backToTopBtn.classList.remove('show');
+                }
+            };
+
+            window.addEventListener('scroll', handleBackToTopVisibility);
+            handleBackToTopVisibility();
+
+            backToTopBtn.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        }
+
+        // Emergency Protocol
+        function triggerEmergencyProtocol() {
+            Swal.fire({
+                title: 'Emergency Assistance',
+                html: `
+                    <p>If you're in immediate danger or experiencing a mental health crisis, please:</p>
+                    <ul class="text-start">
+                        <li>Call your local emergency number</li>
+                        <li>Contact a crisis helpline</li>
+                        <li>Reach out to a trusted friend or family member</li>
+                    </ul>
+                    <p>Would you like us to show you local mental health resources?</p>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, show resources',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // In a real app, this would connect to emergency services
+                    Swal.fire(
+                        'Help is available',
+                        'We\'ve compiled a list of local mental health resources for you. Please reach out for support.',
+                        'success'
+                    );
+                }
+            });
+        }
+
+        // Navigation
+        function showView(viewId) {
+            const sections = ['home', 'why-us', 'assessment', 'chat', 'voice-chat', 'mood'];
+            sections.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.display = (id === viewId) ? 'block' : 'none';
+                }
+            });
+
+            // Update active state in navbar based on current section
+            document.querySelectorAll('.nav-link').forEach(link => {
+                const href = link.getAttribute('href') || '';
+                if (href === `#${viewId}`) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+
+            // Only scroll to top on user-initiated view changes, not on initial load
+            if (!isInitialLoad) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            // If showing chat, focus on input
+            if (viewId === 'chat') {
+                setTimeout(() => {
+                    chatInput.focus();
+                }, 300);
+            }
+        }
+
+        // Initialize by showing home section only
+        // Delay to ensure app.js loads first
+        window.addEventListener('load', () => {
+            // Only run this if app.js hasn't already initialized
+            if (typeof initApp === 'undefined') {
+                showView('home');
+                isInitialLoad = false; // Allow scrolling on future view changes
+                loadModelBenchmarkData();
+                initializeMoodChart();
+
+                // Wire up hero buttons and home emergency button explicitly
+                const heroStartChatBtn = document.getElementById('hero-start-chat-btn');
+                const heroQuickAssessmentBtn = document.getElementById('hero-quick-assessment-btn');
+                const homeEmergencyTriggerBtn = document.getElementById('home-emergency-trigger-btn');
+
+                if (heroStartChatBtn) {
+                    heroStartChatBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        showView('chat');
+                    });
+                }
+
+                if (heroQuickAssessmentBtn) {
+                    heroQuickAssessmentBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        showView('assessment');
+                    });
+                }
+
+                if (homeEmergencyTriggerBtn) {
+                    homeEmergencyTriggerBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        triggerEmergencyProtocol();
+                    });
+                }
+            }
+        });
+
+        // Add error handling for fetch requests
+        // Note: Already added in individual functions
+
+        // Chat functionality
+        function appendChatMessage(sender, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.innerHTML = marked.parse(text);
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendChatMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            appendChatMessage('user', message);
+            chatInput.value = '';
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                appendChatMessage('ai', data.reply);
+            } catch (error) {
+                console.error('Error sending chat message:', error);
+                appendChatMessage('ai', 'Sorry, I encountered an error. Please try again.');
+            }
+        }
+
+        sendBtn.addEventListener('click', sendChatMessage);
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+
+        // Voice Chat functionality
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        let recognizing = false;
+
+        function appendVoiceChatMessage(sender, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.innerHTML = marked.parse(text);
+            voiceChatMessages.appendChild(messageDiv);
+            voiceChatMessages.scrollTop = voiceChatMessages.scrollHeight;
+        }
+
+        if (SpeechRecognition && startVoiceChatBtn && voiceChatMessages) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                recognizing = true;
+                startVoiceChatBtn.classList.add('listening');
+                startVoiceChatBtn.innerHTML = '<i class="fas fa-stop"></i>';
+            };
+
+            recognition.onend = () => {
+                recognizing = false;
+                startVoiceChatBtn.classList.remove('listening');
+                startVoiceChatBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error', event.error);
+                appendVoiceChatMessage('ai', `⚠️ Speech recognition error: ${event.error}`);
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                appendVoiceChatMessage('user', transcript);
+
+                // Send to backend via SocketIO
+                socket.emit('voice_message', transcript);
+            };
+
+            // Listen for bot response
+            socket.on('bot_response', (payload) => {
+                // Backend may send either a plain string or an object
+                const text = (payload && typeof payload === 'object') ? payload.reply : payload;
+                if (text) {
+                    appendVoiceChatMessage('ai', text);
+                }
+            });
+
+            startVoiceChatBtn.addEventListener('click', () => {
+                if (recognizing) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            });
+        } else {
+            // Disable or warn if Speech Recognition not available or elements missing
+            if (startVoiceChatBtn && (!SpeechRecognition || !voiceChatMessages)) {
+                startVoiceChatBtn.disabled = true;
+                startVoiceChatBtn.title = 'Voice chat not available';
+            }
+        }
+
+        // Mood Tracker functionality (integrated with backend APIs)
+        let moodChart;
+
+        function getSelectedTags() {
+            const tags = [];
+            document.querySelectorAll('#mood .form-check-input:checked').forEach(cb => {
+                if (cb.value) tags.push(cb.value);
+            });
+            return tags;
+        }
+
+        function setMoodFeedback(text, emoji) {
+            moodFeedback.innerHTML = `
+                <div class="d-flex align-items-start">
+                    <span class="fs-3 me-3">${emoji}</span>
+                    <div>
+                        <h5 class="mb-1">Thank you for checking in</h5>
+                        <p class="mb-0">${text}</p>
+                    </div>
+                </div>
+            `;
+            moodFeedback.style.display = 'block';
+        }
+
+        async function logMoodToBackend(baseMood) {
+            // Map quick buttons to default numeric mood
+            const moodValueMap = { happy: 8, sad: 3, anxious: 5 };
+            const quickMoodScore = moodValueMap[baseMood] || 5;
+
+            const moodScoreInput = document.getElementById('mood-score');
+            const energyInput = document.getElementById('mood-energy');
+            const anxietyInput = document.getElementById('mood-anxiety');
+            const journalTextarea = document.getElementById('mood-journal');
+            const copingDiv = document.getElementById('mood-coping');
+
+            const moodScore = parseInt(moodScoreInput.value || quickMoodScore, 10);
+            const energy = parseInt(energyInput.value || 5, 10);
+            const anxiety = parseInt(anxietyInput.value || 5, 10);
+            const tags = getSelectedTags();
+            const journal_text = journalTextarea.value.trim();
+
+            try {
+                const response = await fetch('/api/mood/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mood_score: moodScore,
+                        energy,
+                        anxiety,
+                        tags,
+                        journal_text
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                setMoodFeedback(
+                    "Your mood has been saved. You can scroll down to see patterns over time.",
+                    baseMood === 'happy' ? '😊' : baseMood === 'sad' ? '😔' : '😰'
+                );
+
+                // Show coping suggestions if available
+                if (data.coping_suggestions && data.coping_suggestions.length > 0) {
+                    let html = '<strong>Personal coping plan suggestions for this moment:</strong><ul class="mt-2 mb-0">';
+                    data.coping_suggestions.forEach(plan => {
+                        html += `<li><strong>${plan.title}:</strong> ${plan.steps.join(' • ')}</li>`;
+                    });
+                    html += '</ul>';
+                    copingDiv.innerHTML = html;
+                    copingDiv.style.display = 'block';
+                } else {
+                    copingDiv.style.display = 'none';
+                    copingDiv.innerHTML = '';
+                }
+
+                await refreshMoodStatsAndChart();
+            } catch (error) {
+                console.error('Error logging mood:', error);
+                Swal.fire('Error', 'Failed to save your mood entry. Please try again.', 'error');
+            }
+        }
+
+        function attachMoodEventHandlers() {
+            const moodScoreInput = document.getElementById('mood-score');
+            const moodScoreValue = document.getElementById('mood-score-value');
+            const saveBtn = document.getElementById('mood-save-btn');
+            const promptBtn = document.getElementById('mood-prompt-btn');
+            const aiInsightsBtn = document.getElementById('mood-ai-insights-btn');
+            const exportJsonBtn = document.getElementById('mood-export-json-btn');
+            const exportCsvBtn = document.getElementById('mood-export-csv-btn');
+
+            // Quick mood buttons
+            document.getElementById('happy-btn').addEventListener('click', () => logMoodToBackend('happy'));
+            document.getElementById('sad-btn').addEventListener('click', () => logMoodToBackend('sad'));
+            document.getElementById('anxious-btn').addEventListener('click', () => logMoodToBackend('anxious'));
+
+            // Slider label update
+            moodScoreInput.addEventListener('input', () => {
+                moodScoreValue.textContent = moodScoreInput.value;
+            });
+
+            // Explicit save button
+            saveBtn.addEventListener('click', () => logMoodToBackend());
+
+            // Guided journaling prompt
+            promptBtn.addEventListener('click', async () => {
+                const score = parseInt(moodScoreInput.value || '5', 10);
+                try {
+                    const response = await fetch(`/api/mood/journal_prompt?mood_score=${encodeURIComponent(score)}`);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const data = await response.json();
+                    const textarea = document.getElementById('mood-journal');
+                    if (!textarea.value.trim()) {
+                        textarea.value = data.prompt + '\n\n';
+                    } else {
+                        textarea.value += `\n\n${data.prompt}\n`;
+                    }
+                    textarea.focus();
+                } catch (error) {
+                    console.error('Error fetching journal prompt:', error);
+                    Swal.fire('Error', 'Could not fetch a journaling prompt. Please try again.', 'error');
+                }
+            });
+
+            // AI insights
+            aiInsightsBtn.addEventListener('click', async () => {
+                const insightsDiv = document.getElementById('mood-insights');
+                insightsDiv.innerHTML = '<span class="text-muted">Generating insights from your recent entries...</span>';
+                try {
+                    const response = await fetch('/api/mood/ai_insights?days=14');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const data = await response.json();
+                    insightsDiv.innerHTML = marked.parse(data.insights || '');
+                } catch (error) {
+                    console.error('Error fetching AI insights:', error);
+                    insightsDiv.innerHTML = '<span class="text-danger">Could not load AI insights. Please try again later.</span>';
+                }
+            });
+
+            // Exports
+            exportJsonBtn.addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/api/mood/export?format=json');
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const data = await response.json();
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'mood_export.json';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    URL.revokeObjectURL(url);
+                } catch (error) {
+                    console.error('Error exporting JSON:', error);
+                    Swal.fire('Error', 'Could not export your data. Please try again.', 'error');
+                }
+            });
+
+            exportCsvBtn.addEventListener('click', () => {
+                // Simple redirect so browser downloads the CSV directly
+                window.location.href = '/api/mood/export?format=csv';
+            });
+        }
+
+        async function initializeMoodChart() {
+            const ctx = document.getElementById('mood-chart').getContext('2d');
+            moodChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Mood level',
+                        data: [],
+                        borderColor: '#5D5FEF',
+                        backgroundColor: 'rgba(93, 95, 239, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointBackgroundColor: '#5D5FEF',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            suggestedMin: 1,
+                            suggestedMax: 10,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+            await refreshMoodStatsAndChart();
+            attachMoodEventHandlers();
+        }
+
+        async function refreshMoodStatsAndChart() {
+            const statsDiv = document.getElementById('mood-stats');
+            try {
+                const response = await fetch('/api/mood/stats/overview?days=30');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+
+                // Update chart
+                const series = data.daily_mood_series || [];
+                const labels = series.map(p => {
+                    const d = new Date(p.timestamp);
+                    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                });
+                const values = series.map(p => p.mood_score);
+                moodChart.data.labels = labels;
+                moodChart.data.datasets[0].data = values;
+                moodChart.update();
+
+                // Build simple stats text
+                let html = '';
+                if (data.overall_average_mood != null) {
+                    html += `<div>Average mood (last 30 days): <strong>${data.overall_average_mood.toFixed(1)}</strong></div>`;
+                }
+                const weekdayAvgs = (data.weekday_averages || []).filter(w => w.average_mood != null);
+                if (weekdayAvgs.length > 0) {
+                    const best = weekdayAvgs.reduce((a, b) => (a.average_mood > b.average_mood ? a : b));
+                    const worst = weekdayAvgs.reduce((a, b) => (a.average_mood < b.average_mood ? a : b));
+                    html += `<div class="mt-1">You tend to feel best on <strong>${best.weekday}</strong> and lowest on <strong>${worst.weekday}</strong>.</div>`;
+                }
+                const sourceLabels = {
+                    manual: 'Manual check-ins',
+                    chat: 'Chat conversations',
+                    voice_chat: 'Voice conversations',
+                    assessment_general: 'Quick assessment',
+                    assessment_detailed: 'Detailed assessment',
+                    assessment_chat: 'Assessment chat mode'
+                };
+                const sourceEntries = Object.entries(data.source_breakdown || {});
+                if (sourceEntries.length > 0) {
+                    const sourceText = sourceEntries
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([key, count]) => `${sourceLabels[key] || key}: <strong>${count}</strong>`)
+                        .join(' | ');
+                    html += `<div class="mt-2">Tracking sources: ${sourceText}</div>`;
+                }
+                if (!html) {
+                    html = '<span class="text-muted">Once you log a few entries, we will show gentle patterns here.</span>';
+                }
+                statsDiv.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading mood stats:', error);
+                statsDiv.innerHTML = '<span class="text-danger">Could not load mood statistics. Please try again later.</span>';
+            }
+        }
+
+        // Model Benchmark Data
+        async function loadModelBenchmarkData() {
+            try {
+                const response = await fetch('/api/model_benchmark');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const benchmarkData = await response.json();
+                displayModelBenchmarkData(benchmarkData);
+            } catch (error) {
+                console.error('Error loading model benchmark data:', error);
+                modelComparisonContent.innerHTML = '<p>Error loading model benchmark data. Please try again later.</p>';
+            }
+        }
+
+        function displayModelBenchmarkData(data) {
+            let html = '<div class="row">';
+
+            // Find the best model (lowest response time)
+            const bestModel = data.models.reduce((prev, current) =>
+                (prev.average_response_time_ms < current.average_response_time_ms) ? prev : current
+            );
+
+            data.models.forEach(model => {
+                const isBestModel = model.name === bestModel.name;
+                html += `
+                    <div class="col-md-6 mb-3">
+                        <div class="model-card ${isBestModel ? 'best-model' : ''}">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <h5 class="mb-1">${model.name}</h5>
+                                <span class="badge ${isBestModel ? 'bg-success' : 'bg-primary'}">${model.average_response_time_ms} ms</span>
+                            </div>
+                            <p class="mb-0 text-muted">${model.description}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            html += `<div class="mt-3 p-3 bg-light rounded"><strong>Note:</strong> ${data.comparison_note}</div>`;
+
+            modelComparisonContent.innerHTML = html;
+        }
+
+        // Assessment functionality is handled by `static/js/app.js` (initAssessment).
+        // Consolidated here to avoid duplicate handlers and conflicts.
+
+        // Emergency button handler
+        document.querySelectorAll('#emergency-btn').forEach(button => {
+            button.addEventListener('click', triggerEmergencyProtocol);
+        });
+    </script>
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>
