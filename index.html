@@ -211,6 +211,13 @@
             bottom: 0;
             background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffffff' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
             opacity: 0.5;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .hero-section>* {
+            position: relative;
+            z-index: 1;
         }
 
         .feature-card {
@@ -652,6 +659,7 @@
             border-radius: 50%;
             opacity: 0.1;
             z-index: 0;
+            pointer-events: none;
         }
 
         .shape-1 {
@@ -978,7 +986,7 @@
                         onclick="showView('assessment')">
                         <i class="fas fa-clipboard-list me-2"></i>Take Quick Assessment
                     </button>
-                    <button class="btn btn-outline-light btn-lg" onclick="showView('mood')">
+                    <button id="hero-open-mood-btn" class="btn btn-outline-light btn-lg" onclick="showView('mood')">
                         <i class="fas fa-heartbeat me-2"></i>Open Mood Tracker
                     </button>
                 </div>
@@ -1448,8 +1456,26 @@
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 
     <script>
-        // SocketIO client initialization
-        const socket = io();
+        // Socket.IO client initialization (lazy + guarded).
+        const socket = typeof io === 'function'
+            ? io({
+                autoConnect: false,
+                transports: ['websocket'],
+                upgrade: false,
+                reconnection: true,
+                reconnectionAttempts: 5,
+                timeout: 10000
+            })
+            : null;
+        let socketListenersAttached = false;
+
+        function ensureSocketConnected() {
+            if (!socket) return false;
+            if (!socket.connected) {
+                socket.connect();
+            }
+            return true;
+        }
 
         // Track if this is the initial page load
         let isInitialLoad = true;
@@ -1719,7 +1745,7 @@
             voiceChatMessages.scrollTop = voiceChatMessages.scrollHeight;
         }
 
-        if (SpeechRecognition && startVoiceChatBtn && voiceChatMessages) {
+        if (SpeechRecognition && startVoiceChatBtn && voiceChatMessages && socket) {
             recognition = new SpeechRecognition();
             recognition.continuous = false;
             recognition.interimResults = false;
@@ -1747,30 +1773,52 @@
                 appendVoiceChatMessage('user', transcript);
 
                 // Send to backend via SocketIO
-                socket.emit('voice_message', transcript);
+                if (ensureSocketConnected()) {
+                    socket.emit('voice_message', transcript);
+                } else {
+                    appendVoiceChatMessage('ai', 'Voice server is unavailable right now. Please use text chat.');
+                }
             };
 
-            // Listen for bot response
-            socket.on('bot_response', (payload) => {
-                // Backend may send either a plain string or an object
-                const text = (payload && typeof payload === 'object') ? payload.reply : payload;
-                if (text) {
-                    appendVoiceChatMessage('ai', text);
-                }
-            });
+            if (!socketListenersAttached) {
+                socketListenersAttached = true;
+                // Listen for bot response
+                socket.on('bot_response', (payload) => {
+                    // Backend may send either a plain string or an object
+                    const text = (payload && typeof payload === 'object') ? payload.reply : payload;
+                    if (text) {
+                        appendVoiceChatMessage('ai', text);
+                    }
+                });
+
+                socket.on('connect_error', (error) => {
+                    console.error('Socket.IO connect error:', error);
+                    appendVoiceChatMessage('ai', 'Could not connect to voice service. Try again shortly.');
+                });
+
+                socket.on('disconnect', (reason) => {
+                    console.warn('Socket.IO disconnected:', reason);
+                });
+            }
 
             startVoiceChatBtn.addEventListener('click', () => {
                 if (recognizing) {
                     recognition.stop();
                 } else {
+                    if (!ensureSocketConnected()) {
+                        appendVoiceChatMessage('ai', 'Voice server is unavailable right now. Please use text chat.');
+                        return;
+                    }
                     recognition.start();
                 }
             });
         } else {
             // Disable or warn if Speech Recognition not available or elements missing
-            if (startVoiceChatBtn && (!SpeechRecognition || !voiceChatMessages)) {
+            if (startVoiceChatBtn && (!SpeechRecognition || !voiceChatMessages || !socket)) {
                 startVoiceChatBtn.disabled = true;
-                startVoiceChatBtn.title = 'Voice chat not available';
+                startVoiceChatBtn.title = !socket
+                    ? 'Voice chat unavailable (Socket.IO client not loaded)'
+                    : 'Voice chat not available';
             }
         }
 

@@ -664,6 +664,15 @@ def serve_index():
     return send_from_directory(app.root_path, "index.html")
 
 
+@app.route("/favicon.ico", methods=["GET"])
+def favicon():
+    return send_from_directory(
+        os.path.join(app.root_path, "static"),
+        "favicon.ico",
+        mimetype="image/x-icon",
+    )
+
+
 SPA_VIEWS = {"home", "why-us", "assessment", "chat", "voice-chat", "mood"}
 
 

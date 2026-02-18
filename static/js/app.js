@@ -958,6 +958,29 @@ function initApp() {
   initMood();
 
   setupNavigation();
+  const heroStartChatBtn = document.getElementById("hero-start-chat-btn");
+  const heroQuickAssessmentBtn = document.getElementById(
+    "hero-quick-assessment-btn",
+  );
+  const heroMoodBtn = document.getElementById("hero-open-mood-btn");
+  if (heroStartChatBtn) {
+    heroStartChatBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      showView("chat", { userInitiated: true, updateHistory: true });
+    });
+  }
+  if (heroQuickAssessmentBtn) {
+    heroQuickAssessmentBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      showView("assessment", { userInitiated: true, updateHistory: true });
+    });
+  }
+  if (heroMoodBtn) {
+    heroMoodBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      showView("mood", { userInitiated: true, updateHistory: true });
+    });
+  }
   window.addEventListener("popstate", () => {
     showView(resolveInitialViewFromLocation(), {
       userInitiated: false,
@@ -989,60 +1012,89 @@ function initApp() {
 
   // Voice Chat Socket.io Integration
   if (appState.voiceEnabled && !inlineControllerPresent) {
-    const socket = io();
-
-    const startVoiceChatBtn = document.getElementById("start-voice-chat-btn");
-    const voiceChatMessages = document.getElementById("voice-chat-messages");
-
-    // Safety check: only proceed if elements exist
-    if (!startVoiceChatBtn || !voiceChatMessages) {
-      console.warn(
-        "Voice chat elements not found in DOM. Voice chat feature disabled.",
-      );
+    if (typeof io !== "function") {
+      console.warn("Socket.IO client not loaded. Voice chat disabled.");
     } else {
-      function appendVoiceChatMessage(sender, text) {
-        const messageDiv = document.createElement("div");
-        messageDiv.className = `message ${sender}-message`;
-
-        if (sender === "ai") {
-          messageDiv.innerHTML = marked.parse(text || "");
-        } else {
-          messageDiv.textContent = text;
-        }
-        voiceChatMessages.appendChild(messageDiv);
-        voiceChatMessages.scrollTop = voiceChatMessages.scrollHeight;
-      }
-
-      startVoiceChatBtn.addEventListener("click", () => {
-        if (appState.voiceActive) {
-          appState.voiceController.stopListening();
-          appState.voiceActive = false;
-          startVoiceChatBtn.textContent = "Start Voice Chat";
-        } else {
-          appState.voiceController.startListening((transcript) => {
-            appendVoiceChatMessage("user", transcript);
-            socket.emit("voice_message", transcript);
-          });
-          appState.voiceActive = true;
-          startVoiceChatBtn.textContent = "Listening... Click to Stop";
-        }
+      const socket = io({
+        autoConnect: false,
+        transports: ["websocket"],
+        upgrade: false,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        timeout: 10000,
       });
-
-      socket.on("bot_response", (msg) => {
-        const reply = msg && typeof msg === "object" ? msg.reply : msg;
-        if (reply) {
-          appendVoiceChatMessage("ai", reply);
-          appState.voiceController.speak(reply);
+      let socketListenersAttached = false;
+      const ensureSocketConnected = () => {
+        if (!socket.connected) {
+          socket.connect();
         }
-      });
+      };
 
-      socket.on("error", (error) => {
-        console.error("Socket.IO error:", error);
-        appendVoiceChatMessage(
-          "ai",
-          "Sorry, there was a connection error. Please try again.",
+      const startVoiceChatBtn = document.getElementById("start-voice-chat-btn");
+      const voiceChatMessages = document.getElementById("voice-chat-messages");
+
+      // Safety check: only proceed if elements exist
+      if (!startVoiceChatBtn || !voiceChatMessages) {
+        console.warn(
+          "Voice chat elements not found in DOM. Voice chat feature disabled.",
         );
-      });
+      } else {
+        function appendVoiceChatMessage(sender, text) {
+          const messageDiv = document.createElement("div");
+          messageDiv.className = `message ${sender}-message`;
+
+          if (sender === "ai") {
+            messageDiv.innerHTML = marked.parse(text || "");
+          } else {
+            messageDiv.textContent = text;
+          }
+          voiceChatMessages.appendChild(messageDiv);
+          voiceChatMessages.scrollTop = voiceChatMessages.scrollHeight;
+        }
+
+        startVoiceChatBtn.addEventListener("click", () => {
+          if (appState.voiceActive) {
+            appState.voiceController.stopListening();
+            appState.voiceActive = false;
+            startVoiceChatBtn.textContent = "Start Voice Chat";
+          } else {
+            ensureSocketConnected();
+            appState.voiceController.startListening((transcript) => {
+              appendVoiceChatMessage("user", transcript);
+              socket.emit("voice_message", transcript);
+            });
+            appState.voiceActive = true;
+            startVoiceChatBtn.textContent = "Listening... Click to Stop";
+          }
+        });
+
+        if (!socketListenersAttached) {
+          socketListenersAttached = true;
+          socket.on("bot_response", (msg) => {
+            const reply = msg && typeof msg === "object" ? msg.reply : msg;
+            if (reply) {
+              appendVoiceChatMessage("ai", reply);
+              appState.voiceController.speak(reply);
+            }
+          });
+
+          socket.on("connect_error", (error) => {
+            console.error("Socket.IO connect_error:", error);
+            appendVoiceChatMessage(
+              "ai",
+              "Could not connect to voice service. Please try again.",
+            );
+          });
+
+          socket.on("error", (error) => {
+            console.error("Socket.IO error:", error);
+            appendVoiceChatMessage(
+              "ai",
+              "Sorry, there was a connection error. Please try again.",
+            );
+          });
+        }
+      }
     }
   }
 
