@@ -81,7 +81,11 @@ function setupNavbarAutoCollapse() {
     document.getElementById("navbarNav") ||
     document.getElementById("navbarTogglerDemo01");
 
-  if (!navbarCollapse || typeof bootstrap === "undefined" || !bootstrap.Collapse) {
+  if (
+    !navbarCollapse ||
+    typeof bootstrap === "undefined" ||
+    !bootstrap.Collapse
+  ) {
     return;
   }
 
@@ -259,7 +263,7 @@ function showView(view, options = {}) {
   }
 
   // Only scroll to top on user-initiated view changes, not initial route restore.
-  if (userInitiated && !appScriptInitialLoad) {
+  if (userInitiated && !appScriptInitialLoad && normalizedView !== "chat") {
     window.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -296,11 +300,21 @@ function initChat() {
   const chatInput = document.getElementById("chat-input");
   const sendBtn = document.getElementById("send-btn");
   const chatMessages = document.getElementById("chat-messages");
+  const quickPromptButtons = document.querySelectorAll(".quick-prompt-btn");
   if (!chatInput || !sendBtn || !chatMessages) {
     return;
   }
 
   let isSending = false;
+
+  quickPromptButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const prompt = button.dataset.prompt;
+      if (!prompt) return;
+      chatInput.value = prompt;
+      chatInput.focus();
+    });
+  });
 
   sendBtn.addEventListener("click", sendMessage);
   chatInput.addEventListener("keydown", (e) => {
@@ -346,12 +360,17 @@ function initChat() {
         body: JSON.stringify({ message }),
       });
 
-      if (!response.ok) throw new Error(response.statusText);
-
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || data.error || response.statusText);
+      }
       addChatMessage("ai", data.reply);
     } catch (error) {
-      addChatMessage("ai", `⚠️ Error: ${error.message}`);
+      addChatMessage(
+        "ai",
+        error.message ||
+          "The chat service is temporarily unavailable. Please try again in a moment.",
+      );
     } finally {
       isSending = false;
       sendBtn.disabled = false;
@@ -462,7 +481,9 @@ async function initAssessment() {
     setStartButtonsLoading(true);
 
     try {
-      assessmentQuestions = await fetchAssessmentQuestions(currentAssessmentType);
+      assessmentQuestions = await fetchAssessmentQuestions(
+        currentAssessmentType,
+      );
     } catch (error) {
       alert(`Error loading assessment questions: ${error.message}`);
       resetAssessmentUI();
@@ -560,7 +581,8 @@ async function initAssessment() {
           <div class="options">
             ${q.options
               .map((opt, i) => {
-                const selectedClass = savedResponse?.answer === opt ? "active" : "";
+                const selectedClass =
+                  savedResponse?.answer === opt ? "active" : "";
                 return `
                   <button
                     class="option-btn ${selectedClass}"
@@ -599,7 +621,9 @@ async function initAssessment() {
   }
 
   function showCompletion() {
-    const answeredCount = appState.responses.filter((item) => !!item?.answer).length;
+    const answeredCount = appState.responses.filter(
+      (item) => !!item?.answer,
+    ).length;
     const showDetailedPrompt = currentAssessmentType === "general";
 
     questionsContainer.innerHTML = `
@@ -632,7 +656,9 @@ async function initAssessment() {
       .getElementById("view-results-btn")
       .addEventListener("click", showResults);
 
-    const continueDetailedBtn = document.getElementById("continue-detailed-btn");
+    const continueDetailedBtn = document.getElementById(
+      "continue-detailed-btn",
+    );
     if (continueDetailedBtn) {
       continueDetailedBtn.addEventListener("click", () => {
         startAssessment("detailed");
@@ -721,7 +747,8 @@ async function initAssessment() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
             const content =
-              document.getElementById("analysis-content").innerText || data.analysis;
+              document.getElementById("analysis-content").innerText ||
+              data.analysis;
             const splitContent = doc.splitTextToSize(content, 180);
             doc.text(splitContent, 10, 10);
             doc.save("assessment_report.pdf");
@@ -729,7 +756,8 @@ async function initAssessment() {
             const element = document.createElement("a");
             element.setAttribute(
               "href",
-              "data:text/plain;charset=utf-8," + encodeURIComponent(data.analysis),
+              "data:text/plain;charset=utf-8," +
+                encodeURIComponent(data.analysis),
             );
             element.setAttribute("download", "assessment_report.txt");
             element.style.display = "none";
@@ -743,18 +771,22 @@ async function initAssessment() {
         .getElementById("copy-analysis")
         .addEventListener("click", async () => {
           const textToCopy =
-            document.getElementById("analysis-content").innerText || data.analysis;
+            document.getElementById("analysis-content").innerText ||
+            data.analysis;
           try {
             await navigator.clipboard.writeText(textToCopy);
             const copyBtn = document.getElementById("copy-analysis");
             if (copyBtn) {
               copyBtn.innerHTML = '<i class="fas fa-check me-1"></i>Copied';
               setTimeout(() => {
-                copyBtn.innerHTML = '<i class="fas fa-copy me-1"></i>Copy Analysis';
+                copyBtn.innerHTML =
+                  '<i class="fas fa-copy me-1"></i>Copy Analysis';
               }, 1400);
             }
           } catch (error) {
-            alert("Could not copy analysis automatically. Please copy it manually.");
+            alert(
+              "Could not copy analysis automatically. Please copy it manually.",
+            );
           }
         });
     } catch (error) {
@@ -943,7 +975,8 @@ function initDarkMode() {
 
   // Dark mode interaction is managed by index.html's centralized theme script.
   // Here we only keep app state synchronized.
-  appState.darkMode = document.documentElement.getAttribute("data-theme") === "dark";
+  appState.darkMode =
+    document.documentElement.getAttribute("data-theme") === "dark";
 }
 
 function initApp() {

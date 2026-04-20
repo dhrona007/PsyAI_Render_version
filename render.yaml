@@ -8,8 +8,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.11
-      - key: TOGETHER_API_KEY
+      - key: GROQ_API_KEY
         sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
       - key: FLASK_SECRET_KEY
         generateValue: true
       - key: FLASK_DEBUG

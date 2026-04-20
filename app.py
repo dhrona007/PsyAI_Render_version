@@ -4,10 +4,17 @@ import os
 from dotenv import load_dotenv
 import json
 import random
-from together import Together
+from groq import Groq
 from datetime import datetime, timedelta, timezone
 from flask_socketio import SocketIO, emit
 import logging
+import time
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -22,9 +29,29 @@ CORS(app)  # Allow all origins for all routes
 
 socketio = SocketIO(app, cors_allowed_origins="*")  # Enable CORS for SocketIO
 
-# Initialize Together client
-TOGETHER_API_KEY = os.getenv("TOGETHER_API_KEY")
-client = Together(api_key=TOGETHER_API_KEY)
+# Initialize Groq client
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+
+# Log initialization status
+if GROQ_API_KEY:
+    logger.info(f"✓ Groq API initialized with model: {GROQ_MODEL}")
+else:
+    logger.error("✗ GROQ_API_KEY not configured - API calls will fail")
+
+
+try:
+    GROQ_API_RETRY_ATTEMPTS = max(0, int(os.getenv("GROQ_API_RETRY_ATTEMPTS", "2")))
+except ValueError:
+    GROQ_API_RETRY_ATTEMPTS = 2
+
+try:
+    GROQ_API_RETRY_DELAY_SECONDS = max(
+        0.1, float(os.getenv("GROQ_API_RETRY_DELAY_SECONDS", "0.8"))
+    )
+except ValueError:
+    GROQ_API_RETRY_DELAY_SECONDS = 0.8
 
 ###############################################################################
 # In-memory and file-backed state
@@ -190,8 +217,281 @@ def _normalize_text(text):
     return str(text or "").strip().lower()
 
 
+def _estimate_tokens(text):
+    text = str(text or "")
+    return max(1, len(text) // 4)
+
+
+def _trim_conversation_history(
+    conversation_history, max_estimated_tokens=1200, min_messages=3
+):
+    trimmed = []
+    total_tokens = 0
+
+    for message in reversed(conversation_history):
+        content = message.get("content", "") or ""
+        message_tokens = _estimate_tokens(content) + 2
+        if (
+            total_tokens + message_tokens > max_estimated_tokens
+            and len(trimmed) >= min_messages
+        ):
+            break
+        trimmed.insert(0, message)
+        total_tokens += message_tokens
+
+    return trimmed
+
+
 def _count_cue_matches(text, cue_list):
     return sum(1 for cue in cue_list if cue in text)
+
+
+# Query complexity indicators for dynamic response sizing
+SIMPLE_GREETINGS = [
+    "hi",
+    "hii",
+    "hiii",
+    "hello",
+    "hey",
+    "helo",
+    "hey there",
+    "howdy",
+    "sup",
+    "yo",
+    "what's up",
+]
+
+SIMPLE_QUERIES = [
+    "how are you",
+    "how are you doing",
+    "what is your name",
+    "who are you",
+    "are you okay",
+    "is everything alright",
+    "ok",
+    "yes",
+    "no",
+    "maybe",
+]
+
+INFO_REQUEST_KEYWORDS = [
+    "provide",
+    "suggest",
+    "list",
+    "give",
+    "tell me",
+    "explain",
+    "what are",
+    "how to",
+    "how can i",
+    "resources",
+    "tips",
+    "strategies",
+    "techniques",
+    "methods",
+    "ways",
+    "advice",
+    "recommendations",
+    "examples",
+    "guidelines",
+]
+
+COMPLEXITY_KEYWORDS = [
+    "why",
+    "how does",
+    "deeply",
+    "understand",
+    "explain",
+    "elaborate",
+    "detail",
+    "thoroughly",
+    "comprehensive",
+    "full",
+    "complete",
+    "extensive",
+]
+
+EMOTIONAL_INTENSITY_KEYWORDS = [
+    "struggling",
+    "suffer",
+    "suffering",
+    "hard time",
+    "difficult",
+    "overwhelm",
+    "desperate",
+    "hopeless",
+    "worthless",
+    "anxiety",
+    "anxious",
+    "panic",
+    "depression",
+    "depressed",
+    "stressed",
+    "stress",
+    "alone",
+    "lonely",
+    "angry",
+    "sad",
+    "heartbreak",
+    "devastated",
+    "terrified",
+    "scared",
+    "help me",
+    "i can't",
+    "i cannot",
+    "don't know what to do",
+]
+
+RESOURCE_REQUEST_KEYWORDS = [
+    "resources",
+    "tools",
+    "apps",
+    "websites",
+    "links",
+    "exercises",
+    "techniques",
+    "methods",
+    "strategies",
+    "practices",
+    "breathing",
+    "meditation",
+    "mindfulness",
+    "journal",
+    "therapy",
+    "counseling",
+]
+
+
+def _analyze_query_complexity(user_message):
+    normalized = _normalize_text(user_message)
+    word_count = len(normalized.split())
+    char_count = len(normalized)
+    question_count = user_message.count("?")
+
+    complexity_score = 0
+    response_type = "general"
+
+    if normalized in SIMPLE_GREETINGS:
+        complexity_score = 1
+        response_type = "greeting"
+    elif normalized in SIMPLE_QUERIES:
+        complexity_score = 1
+        response_type = "simple"
+    else:
+        info_request_count = sum(1 for kw in INFO_REQUEST_KEYWORDS if kw in normalized)
+        emotional_intensity_count = sum(
+            1 for kw in EMOTIONAL_INTENSITY_KEYWORDS if kw in normalized
+        )
+        resource_request_count = sum(
+            1 for kw in RESOURCE_REQUEST_KEYWORDS if kw in normalized
+        )
+        complexity_kw_count = sum(1 for kw in COMPLEXITY_KEYWORDS if kw in normalized)
+
+        if emotional_intensity_count > 0:
+            response_type = "emotional"
+            complexity_score += emotional_intensity_count * 2
+
+        if info_request_count > 0:
+            response_type = "informational"
+            complexity_score += info_request_count * 2
+
+        if resource_request_count > 0:
+            response_type = "resource_request"
+            complexity_score += resource_request_count * 2.5
+
+        if complexity_kw_count > 0:
+            complexity_score += complexity_kw_count
+
+        if word_count < 15:
+            complexity_score = max(1, complexity_score)
+        elif word_count < 30:
+            complexity_score = max(2, complexity_score + 1)
+        elif word_count < 60:
+            complexity_score = max(3, complexity_score + 2)
+        elif word_count < 100:
+            complexity_score = max(4, complexity_score + 3)
+        else:
+            complexity_score = max(5, complexity_score + 4)
+
+        if question_count >= 2:
+            complexity_score += 1
+        elif question_count == 1:
+            complexity_score += 0.5
+
+        if resource_request_count > 0 and info_request_count > 0:
+            complexity_score += 1
+
+    return {
+        "score": complexity_score,
+        "type": response_type,
+        "word_count": word_count,
+        "char_count": char_count,
+        "question_count": question_count,
+        "emotional_intensity": sum(
+            1 for kw in EMOTIONAL_INTENSITY_KEYWORDS if kw in normalized
+        ),
+        "info_request_count": sum(
+            1 for kw in INFO_REQUEST_KEYWORDS if kw in normalized
+        ),
+        "resource_request_count": sum(
+            1 for kw in RESOURCE_REQUEST_KEYWORDS if kw in normalized
+        ),
+    }
+
+
+def _calculate_dynamic_max_tokens(user_message, conversation_history=None):
+    analysis = _analyze_query_complexity(user_message)
+    score = analysis["score"]
+    response_type = analysis["type"]
+
+    # Increased base allocations for complete responses
+    base_tokens = 250
+    max_limit = 1200  # Increased from 800 to allow more complete responses
+
+    if response_type == "greeting":
+        base_tokens = 180  # Increased from 120
+        max_tokens = min(350, base_tokens + int(score * 30))  # Increased from 200
+    elif response_type == "simple":
+        base_tokens = 220  # Increased from 150
+        max_tokens = min(400, base_tokens + int(score * 40))  # Increased from 250
+    elif response_type == "emotional":
+        base_tokens = 500  # Increased from 350
+        if analysis["emotional_intensity"] >= 3:
+            max_tokens = min(max_limit, base_tokens + 400)  # Increased from 250
+        elif analysis["emotional_intensity"] == 2:
+            max_tokens = min(max_limit, base_tokens + 250)  # Increased from 150
+        else:
+            max_tokens = min(max_limit, base_tokens + 150)  # Increased from 100
+    elif response_type == "resource_request":
+        base_tokens = 700  # Increased from 500
+        max_tokens = min(
+            max_limit,
+            base_tokens
+            + analysis["resource_request_count"] * 150,  # Increased multiplier
+        )
+        if analysis["word_count"] > 60:
+            max_tokens = min(max_limit, max_tokens + 200)  # Increased bonus
+    elif response_type == "informational":
+        base_tokens = 500  # Increased from 350
+        max_tokens = min(
+            max_limit, base_tokens + analysis["info_request_count"] * 150
+        )  # Increased multiplier
+        if analysis["word_count"] > 50:
+            max_tokens = min(max_limit, max_tokens + 200)  # Increased bonus
+    else:
+        base_tokens = 350  # Increased from 250
+        max_tokens = min(
+            max_limit, base_tokens + int(score * 70)
+        )  # Increased multiplier
+
+    if conversation_history and len(conversation_history) > 1:
+        if response_type in ["greeting", "simple"]:
+            max_tokens = min(max_tokens, 400)  # Increased from 250
+        elif response_type == "emotional":
+            max_tokens = max(500, max_tokens - 50)  # Increased minimum
+
+    max_tokens = max(200, max_tokens)  # Increased minimum from 150
+    return max_tokens
 
 
 def _sanitize_text(value):
@@ -326,7 +626,10 @@ def _build_auto_mood_entry_from_text(text, source):
     )
     energy = round(
         _clamp(
-            5.0 + (high_energy_hits * 1.2) - (low_energy_hits * 1.2) - (negative_hits * 0.2),
+            5.0
+            + (high_energy_hits * 1.2)
+            - (low_energy_hits * 1.2)
+            - (negative_hits * 0.2),
             1.0,
             10.0,
         )
@@ -409,7 +712,11 @@ def _build_assessment_mood_entry(answer_items, assessment_type="general"):
             severities.append(severity)
 
         question_text = _extract_assessment_question_text(item)
-        if any(cue in question_text for cue in ASSESSMENT_SAFETY_CUES) and severity and severity >= 2.0:
+        if (
+            any(cue in question_text for cue in ASSESSMENT_SAFETY_CUES)
+            and severity
+            and severity >= 2.0
+        ):
             high_risk_answered = True
 
     if not severities:
@@ -477,7 +784,142 @@ def _append_auto_mood_entry(user_id, entry, min_interval_minutes=10, force=False
     return True
 
 
-def analyze_responses_with_together(
+def _extract_error_status_code(error):
+    for attr in ("status_code", "http_status", "status"):
+        value = getattr(error, attr, None)
+        if value is None:
+            continue
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            pass
+
+    response = getattr(error, "response", None)
+    if response is not None:
+        value = getattr(response, "status_code", None)
+        if value is not None:
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                pass
+
+    return None
+
+
+def _is_transient_groq_error(error):
+    status_code = _extract_error_status_code(error)
+    if status_code in {408, 409, 425, 429, 500, 502, 503, 504}:
+        return True
+
+    error_text = str(error).lower()
+    error_type = error.__class__.__name__.lower()
+    transient_markers = (
+        "overloaded",
+        "not ready",
+        "service unavailable",
+        "temporarily unavailable",
+        "timeout",
+        "timed out",
+        "rate limit",
+        "too many requests",
+        "503",
+        "502",
+        "504",
+    )
+
+    return "serviceunavailable" in error_type or any(
+        marker in error_text for marker in transient_markers
+    )
+
+
+def _create_groq_chat_completion(messages, max_tokens=500, temperature=0.7):
+    if groq_client is None:
+        error_msg = "GROQ_API_KEY is not configured. Please check your .env file."
+        logger.error(error_msg)
+        raise RuntimeError(error_msg)
+
+    total_attempts = GROQ_API_RETRY_ATTEMPTS + 1
+
+    for attempt in range(total_attempts):
+        try:
+            logger.debug(
+                f"Groq API call attempt {attempt + 1}/{total_attempts}: max_tokens={max_tokens}, model={GROQ_MODEL}"
+            )
+            return groq_client.chat.completions.create(
+                model=GROQ_MODEL,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+        except Exception as error:
+            is_last_attempt = attempt >= total_attempts - 1
+            if is_last_attempt or not _is_transient_groq_error(error):
+                error_type = type(error).__name__
+                logger.error(f"Groq API error [{error_type}]: {str(error)}")
+                raise
+
+            delay_seconds = GROQ_API_RETRY_DELAY_SECONDS * (2**attempt)
+            delay_seconds += random.uniform(0, 0.25)
+            logger.warning(
+                f"Groq API transient error (retrying in {delay_seconds:.2f}s): {str(error)} "
+                f"(attempt {attempt + 1}/{total_attempts})"
+            )
+            time.sleep(delay_seconds)
+
+
+def _latest_user_message(conversation_history):
+    if not conversation_history:
+        return ""
+
+    for message in reversed(conversation_history):
+        if message.get("role") == "user":
+            return (message.get("content") or "").strip()
+
+    return ""
+
+
+def _local_supportive_fallback(
+    conversation_history=None, assessment_mode=False, rate_limited=False
+):
+    if rate_limited:
+        if assessment_mode:
+            return (
+                "I've reached my daily usage limit while processing your assessment. "
+                "Your responses were received and saved. Please try again in a few minutes "
+                "when my quota resets. If you need immediate support, please reach out to "
+                "a trusted person or contact your local crisis helpline."
+            )
+        return (
+            "I've temporarily reached my usage limit, but don't worry - I'll be back online "
+            "in just a few minutes! Your message was received. Feel free to keep chatting, "
+            "and I'll respond as soon as I'm able."
+        )
+
+    if assessment_mode:
+        return (
+            "I'm having trouble reaching the AI service right now, so I could not "
+            "generate the full assessment summary yet. Your answers were received; "
+            "please try the analysis again in a moment. If anything feels urgent "
+            "or unsafe, contact local emergency services or someone you trust now."
+        )
+
+    latest_message = _latest_user_message(conversation_history).lower()
+    if latest_message in {"hi", "hii", "hiii", "hello", "hey", "helo"}:
+        return (
+            "Hi, I'm here with you. I'm having a temporary connection issue with "
+            "the AI service, but you can still tell me how you are feeling. Please "
+            "try sending your message again in a moment."
+        )
+
+    return (
+        "I'm having trouble reaching the AI service right now, but I do not want "
+        "to leave you stuck. Please try sending that again in a moment. If this is "
+        "urgent or you might harm yourself, call your local emergency number or "
+        "reach out to someone you trust right now."
+    )
+
+
+def analyze_responses_with_groq(
     conversation_history, assessment_mode=False, answers=None
 ):
     try:
@@ -501,6 +943,7 @@ Guidelines:
 3. **Personalized Support and Guidance**  
 - Use information from mood tracking and assessment responses to tailor advice and coping strategies.  
 - Suggest evidence-based coping mechanisms such as mindfulness, breathing exercises, journaling, or seeking social support.  
+- When users ask for resources, include trusted links, video recommendations, or relevant websites where appropriate.  
 - Encourage users to engage in positive habits and self-care routines.
 
 4. **Mental Health Assessment**  
@@ -532,21 +975,36 @@ Guidelines:
 - Use inclusive language that respects diverse backgrounds, identities, and experiences.  
 - Be mindful of cultural differences in expressing and coping with mental health issues.
 
+10. **Response Length and Focus**  
+- Keep responses appropriately sized to the user's input - brief for simple queries, more detailed for complex requests.  
+- **ALWAYS COMPLETE your responses fully** - never cut off mid-sentence or leave thoughts unfinished.  
+- Provide complete, focused answers without arbitrary truncation.  
+- If you need more space to fully address a topic, continue until your response is naturally complete.  
+- Match response depth to query specificity while ensuring completeness.
+
+11. **Response Completion**  
+- Always finish your thoughts and provide complete answers.  
+- Do not end responses abruptly or mid-explanation.  
+- Ensure every response stands alone as a complete, helpful message.  
+- If providing lists or steps, complete all items before ending.
+
 Summary:  
 You are a compassionate, responsible AI mental health companion. Your responses should always prioritize the userâ€™s emotional safety, provide helpful support, and encourage professional care when necessary. Your role is to listen, support, guide, and empower users on their mental health journey.
 
 Begin each conversation by warmly welcoming the user and inviting them to share how they are feeling today.""",
         }
-        if assessment_mode and answers:
-            # Build a comprehensive assessment analysis prompt
-            answers_text = "\n".join(
-                [
-                    f"{i + 1}. {answer}"
-                    for i, answer in enumerate(answers)
-                    if answer and answer != "No response"
-                ]
-            )
-            prompt = f"""Please provide a personalized mental health analysis based on these assessment responses:
+
+        try:
+            if assessment_mode and answers:
+                # Build a comprehensive assessment analysis prompt
+                answers_text = "\n".join(
+                    [
+                        f"{i + 1}. {answer}"
+                        for i, answer in enumerate(answers)
+                        if answer and answer != "No response"
+                    ]
+                )
+                prompt = f"""Please provide a personalized mental health analysis based on these assessment responses:
 
 {answers_text}
 
@@ -556,35 +1014,124 @@ Based on these responses, please:
 3. Highlight areas of strength and resilience
 4. Suggest 3-5 practical, evidence-based coping strategies they could try
 5. Provide warm, empathetic encouragement and next steps
-6. Remind them that this is an informational assessment, not a diagnosis, and they should seek professional help for persistent concerns"""
-            messages = [system_message, {"role": "user", "content": prompt}]
-        elif conversation_history:
-            prompt = "Continue this conversation:\n" + "\n".join(
-                [msg["content"] for msg in conversation_history]
+6. Remind them that this is an informational assessment, not a diagnosis, and they should seek professional help for persistent concerns
+
+**IMPORTANT: Provide a complete, comprehensive analysis - do not cut off or truncate your response.**"""
+                messages = [system_message, {"role": "user", "content": prompt}]
+                logger.debug("Assessment mode: built assessment analysis prompt")
+            elif conversation_history:
+                trimmed_history = _trim_conversation_history(
+                    conversation_history, max_estimated_tokens=1400, min_messages=4
+                )
+                logger.debug(
+                    f"Trimmed conversation history to {len(trimmed_history)} messages"
+                )
+                prompt = (
+                    "Continue this conversation based on the user's latest input. "
+                    "Keep your response concise and focused; use fewer sentences for simple queries and only expand when the context requires it. "
+                    "Avoid unnecessary repetition or overly long explanations.\n"
+                    "**IMPORTANT: Always complete your response fully - never cut off mid-sentence or leave thoughts unfinished.**\n"
+                    + "\n".join([msg["content"] for msg in trimmed_history])
+                )
+                messages = [system_message, {"role": "user", "content": prompt}]
+                logger.debug("Chat mode: built messages from conversation history")
+            else:
+                messages = [
+                    system_message,
+                    {"role": "user", "content": "Hello, how can I assist you today?"},
+                ]
+                logger.debug("Default mode: no history provided")
+        except Exception as e:
+            logger.error(
+                f"Error building messages: {type(e).__name__}: {str(e)}", exc_info=True
             )
-            messages = [system_message, {"role": "user", "content": prompt}]
-        else:
-            messages = [
-                system_message,
-                {"role": "user", "content": "Hello, how can I assist you today?"},
-            ]
+            raise
 
-        # Call Together API for response
-        response = client.chat.completions.create(
-            model="mistralai/Mistral-Small-24B-Instruct-2501",
-            messages=messages,
-            max_tokens=500,
-            temperature=0.7,
-        )
-        return response.choices[0].message.content
+        # Determine max_tokens dynamically based on query complexity and context
+        try:
+            if assessment_mode:
+                max_tokens = 800
+                logger.debug(f"Assessment mode max_tokens: {max_tokens}")
+            elif conversation_history:
+                last_user_msg = (
+                    conversation_history[-1]["content"]
+                    if conversation_history[-1]["role"] == "user"
+                    else ""
+                )
+                max_tokens = _calculate_dynamic_max_tokens(
+                    last_user_msg, conversation_history
+                )
+                logger.debug(
+                    f"Calculated max_tokens for '{last_user_msg[:30]}': {max_tokens}"
+                )
+            else:
+                max_tokens = 200  # Default for initial response
+                logger.debug(f"Default max_tokens: {max_tokens}")
+        except Exception as e:
+            logger.error(
+                f"Error calculating max_tokens: {type(e).__name__}: {str(e)}",
+                exc_info=True,
+            )
+            raise
+
+        # Call Groq API for response
+        try:
+            logger.debug(
+                f"Calling Groq API with {len(messages)} messages, max_tokens={max_tokens}"
+            )
+            response = _create_groq_chat_completion(
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=0.7,
+            )
+            logger.debug(f"Groq API response received, extracting content")
+            content = response.choices[0].message.content
+            logger.debug(
+                f"Successfully extracted response content ({len(content)} chars)"
+            )
+            return content
+        except Exception as e:
+            logger.error(
+                f"Error calling Groq API or extracting response: {type(e).__name__}: {str(e)}",
+                exc_info=True,
+            )
+            raise
+
     except Exception as e:
-        logging.error(f"Error in analyze_responses_with_together: {e}", exc_info=True)
-        return "Sorry, I encountered an error processing your request."
+        error_type = type(e).__name__
+        error_msg = str(e)
+
+        # Check if this is a rate limit error
+        is_rate_limited = (
+            "rate_limit" in error_msg.lower()
+            or error_type == "RateLimitError"
+            or "429" in error_msg
+        )
+
+        if _is_transient_groq_error(e):
+            if is_rate_limited:
+                logger.warning(
+                    f"Groq API rate limit hit: [{error_type}] {error_msg[:100]}"
+                )
+            else:
+                logger.warning(
+                    f"Groq API transient error in chat analysis: [{error_type}] {error_msg}"
+                )
+        else:
+            logger.error(
+                f"Groq API error in analyze_responses_with_groq: [{error_type}] {error_msg}",
+                exc_info=True,
+            )
+        return _local_supportive_fallback(
+            conversation_history=conversation_history,
+            assessment_mode=assessment_mode,
+            rate_limited=is_rate_limited,
+        )
 
 
-def analyze_mood_history_with_together(mood_entries):
+def analyze_mood_history_with_groq(mood_entries):
     """
-    Use the Together API to generate an empathetic reflection over a list of
+    Use the Groq API to generate an empathetic reflection over a list of
     mood entries. This is separate from the chat/assessment prompt so that we
     can give the model very specific instructions.
 
@@ -636,17 +1183,21 @@ def analyze_mood_history_with_together(mood_entries):
 
         messages = [system_message, {"role": "user", "content": user_content}]
 
-        response = client.chat.completions.create(
-            model="mistralai/Mistral-Small-24B-Instruct-2501",
+        response = _create_groq_chat_completion(
             messages=messages,
             max_tokens=600,
             temperature=0.7,
         )
         return response.choices[0].message.content
     except Exception as e:
-        logging.error(
-            f"Error in analyze_mood_history_with_together: {e}", exc_info=True
-        )
+        if _is_transient_groq_error(e):
+            logging.warning(
+                "Groq API unavailable after retries in mood analysis: %s", e
+            )
+        else:
+            logging.error(
+                f"Error in analyze_mood_history_with_groq: {e}", exc_info=True
+            )
         return (
             "Sorry, I had trouble analyzing your mood history. "
             "You can still review your entries yourself to notice patterns "
@@ -823,19 +1374,24 @@ def assessment_prev():
 def chat():
     data = request.get_json()
     if not data or "message" not in data:
+        logger.warning("Invalid chat request - missing 'message' field")
         return jsonify({"error": "Invalid request"}), 400
     user_message = data["message"]
 
     # Always use the helper so user_id is consistent across all endpoints
     user_id = get_user_id()
 
-    logging.info(f"Chat request from user_id: {user_id} with message: {user_message}")
+    logger.info(
+        f"Chat request from user_id={user_id}, message_len={len(user_message)}, text={user_message[:50]}"
+    )
 
     # Detect potential crisis language in the latest user message
     crisis_info = detect_crisis(user_message)
+    if crisis_info.get("risk_level") == "high":
+        logger.warning(f"Crisis detected: {crisis_info}")
 
     history = user_chat_history.get(user_id, [])
-    logging.info(f"Current conversation history length: {len(history)}")
+    logger.debug(f"Current conversation history length: {len(history)}")
     history.append({"role": "user", "content": user_message})
 
     auto_source = "assessment_chat" if user_id in user_assessment_state else "chat"
@@ -874,7 +1430,7 @@ def chat():
                 }
             )
         else:
-            analysis = analyze_responses_with_together(
+            analysis = analyze_responses_with_groq(
                 conversation_history=None,
                 assessment_mode=True,
                 answers=[q["answer"] for q in assessment_history],
@@ -888,7 +1444,11 @@ def chat():
                 }
             )
     else:
-        ai_response = analyze_responses_with_together(history)
+        logger.info(
+            f"Generating chat response for user_id={user_id}, history_len={len(history)}"
+        )
+        ai_response = analyze_responses_with_groq(history)
+        logger.info(f"Received response length={len(ai_response)} chars")
         history.append({"role": "assistant", "content": ai_response})
         user_chat_history[user_id] = history
         return jsonify(
@@ -1290,7 +1850,7 @@ def mood_stats_overview():
 @app.route("/api/mood/ai_insights", methods=["GET"])
 def mood_ai_insights():
     """
-    Use the Together API to provide a reflective summary over the user's
+    Use the Groq API to provide a reflective summary over the user's
     recent mood entries.
     Query params:
       - days: look back this many days (default 14)
@@ -1326,7 +1886,7 @@ def mood_ai_insights():
             }
         )
 
-    insights = analyze_mood_history_with_together(recent_entries)
+    insights = analyze_mood_history_with_groq(recent_entries)
     return jsonify({"insights": insights})
 
 
@@ -1460,21 +2020,32 @@ def get_assessment_questions():
         ), 500
 
 
+@app.route("/api/test_groq", methods=["GET"])
 @app.route("/api/test_together", methods=["GET"])
-def test_together():
+def test_groq():
     try:
-        response = client.chat.completions.create(
-            model="mistralai/Mistral-Small-24B-Instruct-2501",
+        response = _create_groq_chat_completion(
             messages=[{"role": "user", "content": "Hello"}],
             max_tokens=10,
             temperature=0.7,
         )
-        return jsonify({"response": response.choices[0].message.content})
-    except Exception as e:
-        logging.error(f"Error in test_together route: {e}", exc_info=True)
         return jsonify(
-            {"error": "Failed to get response from Together API", "message": str(e)}
-        ), 500
+            {
+                "provider": "groq",
+                "model": GROQ_MODEL,
+                "response": response.choices[0].message.content,
+            }
+        )
+    except Exception as e:
+        logging.error(f"Error in test_groq route: {e}", exc_info=True)
+        status_code = 503 if _is_transient_groq_error(e) else 500
+        return jsonify(
+            {
+                "error": "Failed to get response from Groq API",
+                "message": str(e),
+                "retryable": _is_transient_groq_error(e),
+            }
+        ), status_code
 
 
 @app.route("/api/assessment_analysis", methods=["POST"])
@@ -1511,7 +2082,7 @@ def assessment_analysis():
         if not answer_lines:
             return jsonify({"error": "No valid answers provided"}), 400
 
-        analysis = analyze_responses_with_together(
+        analysis = analyze_responses_with_groq(
             conversation_history=None,
             assessment_mode=True,
             answers=answer_lines,
@@ -1584,7 +2155,7 @@ def handle_connect():
 def handle_voice_message(data):
     """
     Handle incoming voice transcript messages from the client.
-    This is intentionally wrapped in try/except so that any Together API
+    This is intentionally wrapped in try/except so that any Groq API
     or processing error still returns a response to the browser instead
     of failing silently.
     """
@@ -1615,7 +2186,7 @@ def handle_voice_message(data):
         history.append({"role": "user", "content": message})
 
         # Process message with AI
-        ai_response = analyze_responses_with_together(history)
+        ai_response = analyze_responses_with_groq(history)
 
         # Append AI response to history
         history.append({"role": "assistant", "content": ai_response})
@@ -1649,4 +2220,3 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
     debug = os.getenv("FLASK_DEBUG", "0").lower() in ("1", "true", "yes")
     socketio.run(app, host="0.0.0.0", port=port, debug=debug)
-

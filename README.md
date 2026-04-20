@@ -6,7 +6,7 @@ PsyAI is an AI-powered mental wellness web app that combines chat, voice support
 
 - Backend: Flask, Flask-CORS, Flask-SocketIO
 - Production server: Gunicorn + Eventlet
-- AI Provider: Together API
+- AI Provider: Groq API
 - Frontend: HTML, Bootstrap 5, vanilla JavaScript
 - Charts: Chart.js
 - Report generation: jsPDF
@@ -43,7 +43,8 @@ pip install -r requirements.txt
 3. Create a local `.env` file (do not commit it):
 
 ```env
-TOGETHER_API_KEY=your_together_api_key
+GROQ_API_KEY=your_groq_api_key
+GROQ_MODEL=llama-3.3-70b-versatile
 FLASK_SECRET_KEY=your_secret_key
 FLASK_DEBUG=1
 ```
@@ -84,7 +85,7 @@ If the repo is already initialized, skip `git init` and only run add/commit/push
 2. Connect the GitHub repository.
 3. Render reads `render.yaml` and creates the web service.
 4. Set required secret values when prompted:
-   - `TOGETHER_API_KEY`
+   - `GROQ_API_KEY`
 5. Deploy.
 
 ### Option B: Manual Web Service
@@ -96,7 +97,8 @@ If the repo is already initialized, skip `git init` and only run add/commit/push
    - Build Command: `pip install -r requirements.txt`
    - Start Command: `gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT app:app`
 4. Add environment variables:
-   - `TOGETHER_API_KEY` (required)
+   - `GROQ_API_KEY` (required)
+   - `GROQ_MODEL=llama-3.3-70b-versatile` (optional)
    - `FLASK_SECRET_KEY` (required)
    - `FLASK_DEBUG=0`
    - `PYTHON_VERSION=3.11.11`
