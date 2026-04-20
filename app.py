@@ -1008,15 +1008,17 @@ Begin each conversation by warmly welcoming the user and inviting them to share 
 
 {answers_text}
 
-Based on these responses, please:
-1. Summarize the overall mental and emotional well-being picture
-2. Identify key patterns, themes, and areas of concern
-3. Highlight areas of strength and resilience
-4. Suggest 3-5 practical, evidence-based coping strategies they could try
-5. Provide warm, empathetic encouragement and next steps
-6. Remind them that this is an informational assessment, not a diagnosis, and they should seek professional help for persistent concerns
+🔍 ANALYSIS REQUIREMENTS - CRITICAL INSTRUCTIONS:
+You MUST provide a COMPLETE, comprehensive analysis covering ALL of the following sections. NEVER cut off, skip, or end prematurely:
 
-**IMPORTANT: Provide a complete, comprehensive analysis - do not cut off or truncate your response.**"""
+1. **Overall Well-being Summary** - Fully describe the complete mental and emotional well-being picture
+2. **Patterns and Themes** - Identify ALL key patterns, themes, and areas of concern from the responses  
+3. **Strengths and Resilience** - Highlight ALL areas of strength and resilience observed
+4. **Coping Strategies** - Provide 3-5 FULLY EXPLAINED practical, evidence-based coping strategies
+5. **Encouragement and Next Steps** - Give warm, COMPLETE encouragement and clear next steps
+6. **Professional Support Reminder** - Include reminder this is informational; suggest professional help
+
+⚠️ MANDATORY: Your response MUST be COMPLETELY FINISHED. Do not end mid-sentence, mid-strategy, or mid-thought. Each section must be fully completed. Continue writing until all 6 sections are comprehensive, thorough, and complete. ALWAYS complete every thought you start. This is essential."""
                 messages = [system_message, {"role": "user", "content": prompt}]
                 logger.debug("Assessment mode: built assessment analysis prompt")
             elif conversation_history:
@@ -1050,7 +1052,7 @@ Based on these responses, please:
         # Determine max_tokens dynamically based on query complexity and context
         try:
             if assessment_mode:
-                max_tokens = 1200  # Increased from 800 to ensure complete, comprehensive assessment analysis
+                max_tokens = 1500  # Increased to ensure complete comprehensive analysis without truncation
                 logger.debug(f"Assessment mode max_tokens: {max_tokens}")
             elif conversation_history:
                 last_user_msg = (
