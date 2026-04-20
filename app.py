@@ -1050,7 +1050,7 @@ Based on these responses, please:
         # Determine max_tokens dynamically based on query complexity and context
         try:
             if assessment_mode:
-                max_tokens = 800
+                max_tokens = 1200  # Increased from 800 to ensure complete, comprehensive assessment analysis
                 logger.debug(f"Assessment mode max_tokens: {max_tokens}")
             elif conversation_history:
                 last_user_msg = (
